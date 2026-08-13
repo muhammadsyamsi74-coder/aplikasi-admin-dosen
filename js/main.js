@@ -7,9 +7,8 @@ import { initPenilaian } from './modules/penilaian.js';
 
 const BUCKET_NAME = 'lampiran_aplikasiika';
 let profileDataId = null;
-let currentNamaDosen = ''; // Menyimpan nama dosen dari database untuk validasi
+let currentNamaDosen = '';
 
-// INDIKATOR LOADING NON-BLOCKING (TITIK KEDIP)
 export function showLoading() {
   const loader = document.getElementById('globalLoader');
   if (loader) loader.classList.remove('hidden');
@@ -20,7 +19,55 @@ export function hideLoading() {
   if (loader) loader.classList.add('hidden');
 }
 
-// 1. MEMUAT PROFIL DOSEN & TAGLINE
+// LOGIKA GEMBOK LOGIN KEAMANAN
+function setupSecurityLogin() {
+  const loginOverlay = document.getElementById('loginOverlay');
+  const formLogin = document.getElementById('formLoginDosen');
+  const btnSubmit = document.getElementById('btnLoginSubmit');
+  const inputPwd = document.getElementById('inputPasswordLogin');
+  
+  if (!loginOverlay || !formLogin) return;
+
+  const isSudahLogin = localStorage.getItem('isDosenAuth');
+  if (isSudahLogin === 'true') {
+    loginOverlay.classList.add('hidden');
+  } else {
+    loginOverlay.classList.remove('hidden');
+  }
+
+  formLogin.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const pwdValue = inputPwd ? inputPwd.value.trim() : '';
+    if (!pwdValue) return;
+
+    btnSubmit.innerText = 'MEMERIKSA...';
+    btnSubmit.disabled = true;
+
+    try {
+      const { data, error } = await supabase
+        .from('master')
+        .select('password')
+        .eq('password', pwdValue);
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        localStorage.setItem('isDosenAuth', 'true');
+        loginOverlay.classList.add('hidden');
+        inputPwd.value = '';
+      } else {
+        alert('❌ Kata sandi salah! Silakan coba lagi.');
+      }
+    } catch (err) {
+      alert('Gagal memeriksa keamanan: ' + err.message);
+    } finally {
+      btnSubmit.innerText = 'BUKA APLIKASI';
+      btnSubmit.disabled = false;
+    }
+  });
+}
+
+// PROFIL DOSEN
 async function loadProfilDosen() {
   try {
     const { data, error } = await supabase
@@ -66,7 +113,6 @@ async function loadProfilDosen() {
   }
 }
 
-// 2. KLIK 5X + VALIDASI TEKS KOSONG TANPA KETERANGAN
 function setupMultiClickAvatar() {
   const avatarContainer = document.getElementById('avatarProfilContainer');
   const hiddenInputFile = document.getElementById('inputFotoProfilHidden');
@@ -81,31 +127,22 @@ function setupMultiClickAvatar() {
     clickCount++;
 
     if (resetTimer) clearTimeout(resetTimer);
-    resetTimer = setTimeout(() => {
-      clickCount = 0;
-    }, 1500);
+    resetTimer = setTimeout(() => { clickCount = 0; }, 1500);
 
-    // Tepat pada klik ke-5
     if (clickCount === 5) {
       clickCount = 0;
       if (resetTimer) clearTimeout(resetTimer);
 
-      // Munculkan input dialog KOSONG tanpa teks petunjuk
       const inputVerification = prompt("");
-
-      // Cek apakah teks cocok dengan nama_dosen di database
       if (inputVerification !== null && inputVerification.trim() === currentNamaDosen.trim()) {
-        hiddenInputFile.click(); // Cocok! Buka dialog upload
+        hiddenInputFile.click();
       }
-      // Jika salah atau batal, kembalikan saja seolah tidak terjadi apa-apa
     }
   });
 
-  // Event saat berkas gambar dipilih
   hiddenInputFile.addEventListener('change', async (e) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
-      
       if (!file.type.match(/image\/(png|jpeg|jpg)/)) {
         alert('File yang dipilih wajib berupa Gambar (PNG, JPG, JPEG)!');
         return;
@@ -114,7 +151,6 @@ function setupMultiClickAvatar() {
       showLoading();
       try {
         const compressedFile = await compressImageAvatar(file, 150, 0.7);
-
         const cleanFileName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
         const fileName = `avatar_${Date.now()}_${cleanFileName}`;
 
@@ -128,14 +164,9 @@ function setupMultiClickAvatar() {
         const photoURL = publicURLData.publicUrl;
 
         if (profileDataId) {
-          await supabase
-            .from('pengaturanprofil')
-            .update({ link_fotoprofil: photoURL })
-            .eq('id', profileDataId);
+          await supabase.from('pengaturanprofil').update({ link_fotoprofil: photoURL }).eq('id', profileDataId);
         } else {
-          await supabase
-            .from('pengaturanprofil')
-            .insert([{ link_fotoprofil: photoURL }]);
+          await supabase.from('pengaturanprofil').insert([{ link_fotoprofil: photoURL }]);
         }
 
         await loadProfilDosen();
@@ -161,27 +192,17 @@ function compressImageAvatar(file, maxDimension = 150, quality = 0.7) {
         const canvas = document.createElement('canvas');
         canvas.width = maxDimension;
         canvas.height = maxDimension;
-        
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, maxDimension, maxDimension);
-
-        canvas.toBlob(
-          (blob) => {
-            const compressedFile = new File([blob], file.name, {
-              type: 'image/jpeg',
-              lastModified: Date.now(),
-            });
-            resolve(compressedFile);
-          },
-          'image/jpeg',
-          quality
-        );
+        canvas.toBlob((blob) => {
+          resolve(new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() }));
+        }, 'image/jpeg', quality);
       };
     };
   });
 }
 
-// 3. ROUTER NAVIGASI UTAMA
+// ROUTER NAVIGASI
 export async function navigateTo(menuName) {
   showLoading();
   const appContent = document.getElementById('app-content');
@@ -196,22 +217,17 @@ export async function navigateTo(menuName) {
     document.querySelectorAll('.nav-trigger').forEach(btn => {
       if (btn.getAttribute('data-menu') === menuName) {
         btn.classList.add('bg-amber-400', 'text-slate-900', 'shadow-sm');
-        btn.classList.remove('text-slate-600');
+        btn.classList.remove('text-slate-500');
       } else {
         btn.classList.remove('bg-amber-400', 'text-slate-900', 'shadow-sm');
-        btn.classList.add('text-slate-600');
+        btn.classList.add('text-slate-500');
       }
     });
 
-    if (menuName === 'master' && typeof initMaster === 'function') {
-      await initMaster();
-    } else if (menuName === 'presensi' && typeof initPresensi === 'function') {
-      await initPresensi();
-    } else if (menuName === 'jurnal' && typeof initJurnal === 'function') {
-      await initJurnal();
-    } else if (menuName === 'penilaian' && typeof initPenilaian === 'function') {
-      await initPenilaian();
-    }
+    if (menuName === 'master' && typeof initMaster === 'function') await initMaster();
+    else if (menuName === 'presensi' && typeof initPresensi === 'function') await initPresensi();
+    else if (menuName === 'jurnal' && typeof initJurnal === 'function') await initJurnal();
+    else if (menuName === 'penilaian' && typeof initPenilaian === 'function') await initPenilaian();
 
   } catch (err) {
     console.error('Routing Error:', err);
@@ -221,6 +237,7 @@ export async function navigateTo(menuName) {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
+  setupSecurityLogin();
   await loadProfilDosen();
   setupMultiClickAvatar();
 
@@ -228,9 +245,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       const targetMenu = btn.getAttribute('data-menu');
-      if (targetMenu) {
-        navigateTo(targetMenu);
-      }
+      if (targetMenu) navigateTo(targetMenu);
     });
   });
 
