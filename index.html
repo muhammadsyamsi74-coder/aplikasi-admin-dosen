@@ -1,0 +1,89 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dosen</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Custom Style Jika Ada -->
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Supabase JS Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans antialiased min-h-screen flex flex-col md:flex-row">
+
+  <!-- INPUT FILE TERSEMBUNYI UNTUK GANTI FOTO PROFIL -->
+  <input type="file" id="inputFotoProfilHidden" accept="image/png, image/jpeg, image/jpg" class="hidden">
+
+  <!-- SIDEBAR DESKTOP -->
+  <aside class="w-full md:w-64 bg-white border-r border-slate-200 p-5 flex flex-col justify-between shrink-0">
+    <div class="space-y-6">
+      <!-- HEADER PROFIL DOSEN -->
+      <div class="bg-amber-400/90 p-4 rounded-2xl flex items-center justify-between gap-3 shadow-sm relative">
+        <div class="flex items-center gap-3 overflow-hidden">
+          <!-- AVATAR / FOTO PROFIL LINGKARAN SEMPURNA (KLIK 5 KALI BERTURUT-TURUT) -->
+          <div id="avatarProfilContainer" class="w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center text-white font-extrabold text-sm shrink-0 overflow-hidden cursor-pointer select-none transition-transform active:scale-90 border-2 border-amber-300 shadow-sm" title="Klik 5x berturut-turut">
+            <span id="avatarInisialText">IK</span>
+            <img id="avatarProfilImg" src="" alt="Profil Dosen" class="w-full h-full object-cover rounded-full hidden">
+          </div>
+          <!-- INFO TEXT (NAMA & KAMPUS) -->
+          <div class="overflow-hidden">
+            <h1 id="textNamaDosen" class="font-extrabold text-xs text-slate-900 leading-tight truncate">Memuat...</h1>
+            <p id="textNamaKampus" class="text-[10px] text-slate-800 font-bold truncate mt-0.5">Memuat...</p>
+          </div>
+        </div>
+
+        <!-- INDIKATOR LOADING BARU (TITIK KEDIP HIJAU ELEGAN) -->
+        <div id="globalLoader" class="hidden shrink-0" title="Memuat data...">
+          <span class="relative flex h-2.5 w-2.5">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-teal-700"></span>
+          </span>
+        </div>
+      </div>
+
+      <!-- NAVIGASI MENU DESKTOP -->
+      <nav class="space-y-1">
+        <a href="#" data-menu="jurnal" class="nav-trigger flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+          JURNAL
+        </a>
+        <a href="#" data-menu="presensi" class="nav-trigger flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+          PRESENSI
+        </a>
+        <a href="#" data-menu="penilaian" class="nav-trigger flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+          PENILAIAN
+        </a>
+        <a href="#" data-menu="master" class="nav-trigger flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
+          MASTER DATA
+        </a>
+      </nav>
+    </div>
+
+    <!-- FOOTER TAGLINE (WARNA KUNING & CETAK MIRING) -->
+    <div class="pt-6 border-t border-slate-100 hidden md:block">
+      <p id="textTaglineProfile" class="text-[11px] text-amber-500 italic font-bold leading-relaxed">
+        Memuat Tagline...
+      </p>
+    </div>
+  </aside>
+
+  <!-- KONTEN UTAMA DINAMIS (ROUTER) -->
+  <main id="app-content" class="flex-1 p-4 md:p-8 overflow-y-auto">
+    <!-- Komponen HTML dimuat oleh main.js -->
+  </main>
+
+  <!-- SKRIP UTAMA -->
+  <script type="module" src="js/main.js"></script>
+  <!-- Library Export Excel & PDF -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,165 @@
+<!-- components/master.html -->
+<div class="space-y-6">
+  <!-- HEADER MODUL -->
+  <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div>
+      <h2 class="text-lg font-black text-slate-800 uppercase tracking-wide">Master Data Administrasi</h2>
+      <p class="text-xs text-slate-500 font-medium">Kelola direktori Mata Kuliah, Data Mahasiswa, dan Plotting KRS Kelas.</p>
+    </div>
+    <!-- SUB TAB NAVIGASI -->
+    <div class="flex bg-slate-100 p-1 rounded-xl gap-1 border border-slate-200 self-start md:self-auto">
+      <button id="tabBtnMK" class="tab-master-btn px-4 py-2 text-xs font-bold rounded-lg bg-white text-orange-600 shadow-sm transition-all">Mata Kuliah</button>
+      <button id="tabBtnMhs" class="tab-master-btn px-4 py-2 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900 transition-all">Mahasiswa</button>
+      <button id="tabBtnKRS" class="tab-master-btn px-4 py-2 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900 transition-all">Plotting KRS</button>
+    </div>
+  </div>
+
+  <!-- SECTION 1: TAB MATA KULIAH -->
+  <div id="sectionMataKuliah" class="space-y-6">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- FORM INPUT MATA KULIAH -->
+      <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+        <h3 id="formMKTitle" class="text-xs font-extrabold text-slate-700 uppercase mb-4 tracking-wider">Tambah Mata Kuliah</h3>
+        <form id="formMataKuliah" class="space-y-3">
+          <input type="hidden" id="mk_id" value="">
+          <div>
+            <label class="block text-[11px] font-extrabold text-slate-600 mb-1">Kode MK</label>
+            <input type="text" id="mk_kode" placeholder="Misal: TIF201" required class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-400 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-[11px] font-extrabold text-slate-600 mb-1">Nama Mata Kuliah</label>
+            <input type="text" id="mk_nama" placeholder="Misal: Pemrograman Web" required class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-400 focus:outline-none">
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[11px] font-extrabold text-slate-600 mb-1">SKS</label>
+              <input type="number" id="mk_sks" placeholder="3" required class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-400 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-[11px] font-extrabold text-slate-600 mb-1">Kelas</label>
+              <input type="text" id="mk_kelas" placeholder="A1 / Reguler" required class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-400 focus:outline-none">
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[11px] font-extrabold text-slate-600 mb-1">Semester</label>
+              <input type="text" id="mk_semester" placeholder="Ganjil 2026/2027" required class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-400 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-[11px] font-extrabold text-slate-600 mb-1">Hari Jadwal</label>
+              <input type="text" id="mk_jadwal" placeholder="Senin" required class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-400 focus:outline-none">
+            </div>
+          </div>
+          <div>
+            <label class="block text-[11px] font-extrabold text-slate-600 mb-1">Jam Perkuliahan</label>
+            <input type="time" id="mk_jam" required class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-400 focus:outline-none">
+          </div>
+          <div class="flex gap-2 pt-2">
+            <button type="submit" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-md">Simpan Data</button>
+            <button type="button" id="btnBatalMK" class="hidden px-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2.5 rounded-xl text-xs">Batal</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- TABEL DAFTAR MATA KULIAH -->
+      <div class="lg:col-span-2 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
+        <div>
+          <h3 class="text-xs font-extrabold text-slate-700 uppercase mb-4 tracking-wider">Daftar Mata Kuliah Diampu</h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-100 border-b border-slate-200 text-slate-600 font-extrabold uppercase text-[10px]">
+                  <th class="p-3">Kode/MK</th>
+                  <th class="p-3">Kelas</th>
+                  <th class="p-3">SKS</th>
+                  <th class="p-3">Jadwal</th>
+                  <th class="p-3 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="listMataKuliahTable" class="divide-y divide-slate-100">
+                <!-- Data dinamis akan dimasukkan oleh JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 2: TAB MAHASISWA -->
+  <div id="sectionMahasiswa" class="hidden space-y-6">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- FORM INPUT MAHASISWA -->
+      <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+        <h3 id="formMhsTitle" class="text-xs font-extrabold text-slate-700 uppercase mb-4 tracking-wider">Tambah Mahasiswa Baru</h3>
+        <form id="formMahasiswa" class="space-y-3">
+          <input type="hidden" id="mhs_id" value="">
+          <div>
+            <label class="block text-[11px] font-extrabold text-slate-600 mb-1">NPM Mahasiswa</label>
+            <input type="text" id="mhs_npm" placeholder="Misal: 210301001" required class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-400 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-[11px] font-extrabold text-slate-600 mb-1">Nama Lengkap</label>
+            <input type="text" id="mhs_nama" placeholder="Misal: Ahmad Fauzi" required class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-400 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-[11px] font-extrabold text-slate-600 mb-1">Email Mahasiswa</label>
+            <input type="email" id="mhs_email" placeholder="ahmad@student.ac.id" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-400 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-[11px] font-extrabold text-slate-600 mb-1">No WhatsApp</label>
+            <input type="text" id="mhs_wa" placeholder="08123456789" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-400 focus:outline-none">
+          </div>
+          <div class="flex gap-2 pt-2">
+            <button type="submit" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-md">Simpan Mahasiswa</button>
+            <button type="button" id="btnBatalMhs" class="hidden px-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2.5 rounded-xl text-xs">Batal</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- TABEL DAFTAR MAHASISWA -->
+      <div class="lg:col-span-2 bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+        <h3 class="text-xs font-extrabold text-slate-700 uppercase mb-4 tracking-wider">Master Data Mahasiswa</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="bg-slate-100 border-b border-slate-200 text-slate-600 font-extrabold uppercase text-[10px]">
+                <th class="p-3">NPM</th>
+                <th class="p-3">Nama Mahasiswa</th>
+                <th class="p-3">Kontak WA</th>
+                <th class="p-3 text-center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="listMahasiswaTable" class="divide-y divide-slate-100">
+              <!-- Data dinamis dimasukkan oleh JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 3: TAB PLOTTING KRS -->
+  <div id="sectionKRS" class="hidden space-y-6">
+    <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+      <h3 class="text-xs font-extrabold text-slate-700 uppercase tracking-wider">Plotting Mahasiswa ke Mata Kuliah (KRS)</h3>
+      
+      <!-- PILIH MATA KULIAH TARGET -->
+      <div>
+        <label class="block text-[11px] font-extrabold text-slate-600 mb-1">Pilih Mata Kuliah untuk Diplot</label>
+        <select id="selectKRSMataKuliah" class="w-full md:w-1/2 px-3 py-2 text-xs border border-amber-300 bg-amber-50/30 rounded-xl font-bold text-slate-800 focus:outline-none">
+          <option value="">-- Pilih Mata Kuliah --</option>
+        </select>
+      </div>
+
+      <!-- AREA CHECKLIST MAHASISWA -->
+      <div id="areaPlottingKRS" class="hidden border-t border-slate-100 pt-4 space-y-3">
+        <p class="text-xs text-slate-500 font-medium">Centang mahasiswa yang mengontrak mata kuliah ini, lalu klik <span class="font-bold text-slate-800">Simpan Plotting KRS</span>.</p>
+        <div id="checkboxMahasiswaKRS" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-72 overflow-y-auto p-2 bg-slate-50 border border-slate-200 rounded-xl">
+          <!-- Checkbox dinamis dari JS -->
+        </div>
+        <button id="btnSimpanKRS" class="bg-orange-600 hover:bg-orange-700 text-white font-bold px-6 py-2.5 rounded-xl text-xs transition-all shadow-md">Simpan Plotting KRS</button>
+      </div>
+    </div>
+  </div>
+</div>

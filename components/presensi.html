@@ -1,0 +1,195 @@
+<!-- components/presensi.html -->
+<div class="space-y-6">
+  <!-- HEADER MODUL -->
+  <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div>
+      <h2 class="text-lg font-black text-slate-800 uppercase tracking-wide">Presensi Perkuliahan</h2>
+      <p id="presensiSubtitle" class="text-xs text-slate-500 font-medium">Pencatatan absensi harian mahasiswa per mata kuliah dan rekapitulasi perkuliahan.</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <!-- TOMBOL UNDUH LAPORAN MATRIKS -->
+      <button id="btnOpenModalEksporPresensi" class="px-4 py-2 text-xs font-extrabold rounded-xl bg-teal-600 hover:bg-teal-700 text-white shadow-sm transition-all flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+        Unduh Rekap Absensi
+      </button>
+      <!-- TOGGLE VIEW INPUT / RIWAYAT -->
+      <button id="btnToggleRiwayat" class="px-4 py-2 text-xs font-extrabold rounded-xl bg-amber-500 hover:bg-amber-600 text-white shadow-sm transition-all flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <span id="textToggleRiwayat">Lihat Riwayat Presensi</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- =============================== -->
+  <!-- VIEW 1: INPUT PRESENSI          -->
+  <!-- =============================== -->
+  <div id="viewInputPresensi" class="space-y-6">
+    <!-- PANEL FILTER UTAMA -->
+    <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-[11px] font-extrabold text-slate-600 mb-1">Pilih Mata Kuliah</label>
+          <select id="presensiSelectMK" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-400 focus:outline-none font-bold text-slate-800">
+            <option value="">-- Pilih Mata Kuliah --</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[11px] font-extrabold text-slate-600 mb-1">Tanggal Absensi</label>
+          <input type="date" id="presensiTanggal" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-400 focus:outline-none font-bold">
+        </div>
+      </div>
+      <div class="flex justify-end pt-2">
+        <button id="btnTampilkanMhsPresensi" class="bg-slate-800 hover:bg-slate-900 text-white font-bold px-5 py-2.5 rounded-xl text-xs transition-all shadow-sm">
+          Muat Daftar Mahasiswa
+        </button>
+      </div>
+    </div>
+
+    <!-- AREA TABEL PRESENSI MAHASISWA -->
+    <div id="containerTabelPresensi" class="hidden bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-3">
+        <div>
+          <h3 id="labelInfoKelasPresensi" class="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Daftar Mahasiswa Kelas</h3>
+          <p class="text-[11px] text-slate-500">Pilih status: <span class="font-bold text-teal-600">H (Hadir)</span>, <span class="font-bold text-blue-600">S (Sakit)</span>, <span class="font-bold text-amber-500">I (Izin)</span>, <span class="font-bold text-red-600">A (Alpha)</span>.</p>
+        </div>
+        <button id="btnSetAllHadir" class="px-3 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-700 font-extrabold text-[10px] rounded-lg border border-teal-200 transition-all">
+          ✓ Tandai Semua Hadir
+        </button>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="bg-slate-100 border-b border-slate-200 text-slate-600 font-extrabold uppercase text-[10px]">
+              <th class="p-3 w-10 text-center">No</th>
+              <th class="p-3">NPM / Nama</th>
+              <th class="p-3 text-center">Kehadiran (H/I/S/A)</th>
+              <th class="p-3">Keterangan</th>
+            </tr>
+          </thead>
+          <tbody id="listPresensiTable" class="divide-y divide-slate-100">
+            <!-- Dinamis JS -->
+          </tbody>
+        </table>
+      </div>
+
+      <div class="flex justify-end pt-3 border-t border-slate-100">
+        <button id="btnSimpanPresensi" class="bg-amber-500 hover:bg-amber-600 text-white font-bold px-6 py-2.5 rounded-xl text-xs transition-all shadow-md">
+          Simpan Presensi Kelas
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =============================== -->
+  <!-- VIEW 2: RIWAYAT PRESENSI        -->
+  <!-- =============================== -->
+  <div id="viewRiwayatPresensi" class="hidden bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+    <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+      <h3 class="text-xs font-extrabold text-slate-700 uppercase tracking-wider">Riwayat Absensi Seluruh Kelas</h3>
+    </div>
+
+    <!-- FITUR FILTER KELAS DILENGKAPI PADA RIWAYAT -->
+    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 max-w-xs">
+      <label class="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">Filter Kelas / Mata Kuliah</label>
+      <select id="filterRiwayatPresensiMK" class="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg font-bold text-slate-800 bg-white focus:outline-none">
+        <option value="">-- Semua Mata Kuliah --</option>
+      </select>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-xs border-collapse">
+        <thead>
+          <tr class="bg-slate-100 border-b border-slate-200 text-slate-600 font-extrabold uppercase text-[10px]">
+            <th class="p-3">Tanggal</th>
+            <th class="p-3">Mata Kuliah</th>
+            <th class="p-3 text-center">Rekap (H/I/S/A)</th>
+            <th class="p-3 text-center">Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="listRiwayatPresensi" class="divide-y divide-slate-100">
+          <!-- Dinamis JS -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODAL POP-UP UNDUH REKAP MATRIKS PRESENSI  -->
+<!-- ========================================== -->
+<div id="modalEksporPresensi" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+  <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-4">
+    <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+      <h3 class="text-sm font-black text-slate-800 uppercase">Parameter Unduh Absensi</h3>
+      <button id="btnCloseModalEksporPresensi" class="text-slate-400 hover:text-slate-600 font-bold text-lg">&times;</button>
+    </div>
+
+    <div class="space-y-3">
+      <!-- 1. OPSI MATA KULIAH -->
+      <div>
+        <label class="block text-[11px] font-extrabold text-slate-700 mb-1">Cakupan Kelas</label>
+        <select id="exportPresensiSelectMK" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl font-bold text-slate-800 focus:outline-none">
+          <option value="">-- Semua Mata Kuliah (Multi Sheet/Page) --</option>
+        </select>
+      </div>
+
+      <!-- 2. OPSI TIPE RENTANG WAKTU -->
+      <div>
+        <label class="block text-[11px] font-extrabold text-slate-700 mb-1">Mode Filter Waktu</label>
+        <select id="exportPresensiModeWaktu" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl font-bold text-slate-800 focus:outline-none">
+          <option value="semua">Semua Periode Perkuliahan</option>
+          <option value="tanggal">Berdasarkan Rentang Tanggal</option>
+          <option value="bulan">Berdasarkan Bulan & Tahun</option>
+        </select>
+      </div>
+
+      <!-- SUB FILTER A: RENTANG TANGGAL -->
+      <div id="subPresensiFilterTanggal" class="hidden grid grid-cols-2 gap-2 bg-amber-50 p-3 rounded-xl border border-amber-200">
+        <div>
+          <label class="block text-[10px] font-extrabold text-slate-600 mb-1">Dari Tanggal</label>
+          <input type="date" id="exportPresensiTglMulai" class="w-full px-2 py-1.5 text-xs border border-slate-300 rounded-lg bg-white">
+        </div>
+        <div>
+          <label class="block text-[10px] font-extrabold text-slate-600 mb-1">Sampai Tanggal</label>
+          <input type="date" id="exportPresensiTglSelesai" class="w-full px-2 py-1.5 text-xs border border-slate-300 rounded-lg bg-white">
+        </div>
+      </div>
+
+      <!-- SUB FILTER B: BULAN & TAHUN -->
+      <div id="subPresensiFilterBulan" class="hidden grid grid-cols-2 gap-2 bg-amber-50 p-3 rounded-xl border border-amber-200">
+        <div>
+          <label class="block text-[10px] font-extrabold text-slate-600 mb-1">Pilih Bulan</label>
+          <select id="exportPresensiBulan" class="w-full px-2 py-1.5 text-xs border border-slate-300 rounded-lg bg-white font-bold">
+            <option value="1">Januari</option>
+            <option value="2">Februari</option>
+            <option value="3">Maret</option>
+            <option value="4">April</option>
+            <option value="5">Mei</option>
+            <option value="6">Juni</option>
+            <option value="7">Juli</option>
+            <option value="8">Agustus</option>
+            <option value="9">September</option>
+            <option value="10">Oktober</option>
+            <option value="11">November</option>
+            <option value="12">Desember</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[10px] font-extrabold text-slate-600 mb-1">Pilih Tahun</label>
+          <input type="number" id="exportPresensiTahun" value="2026" min="2020" max="2030" class="w-full px-2 py-1.5 text-xs border border-slate-300 rounded-lg bg-white font-bold">
+        </div>
+      </div>
+    </div>
+
+    <!-- TOMBOL EKSEKUSI UNDUH -->
+    <div class="pt-3 border-t border-slate-100 flex gap-2">
+      <button id="btnDoExportPresensiExcel" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5">
+        📊 Unduh Excel (.xlsx)
+      </button>
+      <button id="btnDoExportPresensiPDF" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5">
+        📄 Unduh PDF (.pdf)
+      </button>
+    </div>
+  </div>
+</div>
