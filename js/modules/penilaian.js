@@ -12,6 +12,39 @@ export async function initPenilaian() {
   await loadTugasSelectOptions();
   setupEventListeners();
   setupExportModalListeners();
+  setupAccordionMobile();
+}
+
+// LOGIKA BUKA/TUTUP FORM TUGAS DI MOBILE
+function setupAccordionMobile() {
+  const btnToggle = document.getElementById('btnToggleFormTugasMobile');
+  const wrapper = document.getElementById('wrapperFormTugas');
+  const label = document.getElementById('labelStatusToggleTugas');
+  const icon = document.getElementById('iconArrowToggleTugas');
+
+  if (!btnToggle || !wrapper) return;
+
+  btnToggle.addEventListener('click', () => {
+    // Hanya berlaku di layar kecil (mobile)
+    if (window.innerWidth >= 768) return;
+
+    const isHidden = wrapper.classList.contains('hidden');
+    if (isHidden) {
+      wrapper.classList.remove('hidden');
+      if (label) {
+        label.innerText = 'Tutup Form';
+        label.className = 'text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full';
+      }
+      if (icon) icon.classList.add('rotate-180');
+    } else {
+      wrapper.classList.add('hidden');
+      if (label) {
+        label.innerText = 'Buka Form';
+        label.className = 'text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full';
+      }
+      if (icon) icon.classList.remove('rotate-180');
+    }
+  });
 }
 
 async function loadMKOptions() {
@@ -132,6 +165,18 @@ function setupEventListeners() {
 
       document.getElementById('formDaftarTugas').reset();
       await loadTugasSelectOptions();
+      
+      // Tutup kembali accordion di mobile setelah submit berhasil
+      if (window.innerWidth < 768) {
+        document.getElementById('wrapperFormTugas')?.classList.add('hidden');
+        const label = document.getElementById('labelStatusToggleTugas');
+        if (label) {
+          label.innerText = 'Buka Form';
+          label.className = 'text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full';
+        }
+        document.getElementById('iconArrowToggleTugas')?.classList.remove('rotate-180');
+      }
+
       alert('Judul Tugas & Lampiran Soal Berhasil Disimpan!');
     } catch (err) {
       alert('Terjadi kesalahan: ' + err.message);
@@ -182,29 +227,57 @@ async function loadTabelNilai(idTugas, idMK) {
   currentMhsNilaiList.forEach(mhs => {
     const rec = nilaiMap.get(mhs.id);
     const val = rec?.nilai_tugas !== undefined ? rec.nilai_tugas : '';
-    const tuntas = rec?.ketuntasan_tugas || 'Tuntas';
+    const rawTuntas = rec?.ketuntasan_tugas || 'Tuntas';
+    const isTuntas = rawTuntas === 'Tuntas' || rawTuntas === 'T';
+    const statusVal = isTuntas ? 'T' : 'TD';
     const catatan = rec?.refleksi_tugas || '';
 
     const tr = document.createElement('tr');
     tr.className = 'hover:bg-slate-50 transition-all';
     tr.innerHTML = `
-      <td class="p-3 leading-tight">
-        <div class="font-bold text-slate-800">${mhs.nama_mahasiswa}</div>
+      <td class="p-3 leading-tight min-w-[180px] md:min-w-[240px]">
+        <div class="font-bold text-slate-800 text-xs leading-snug break-words">${mhs.nama_mahasiswa}</div>
         <div class="font-mono text-[10px] font-extrabold text-teal-700">${mhs.npm_mahasiswa}</div>
       </td>
-      <td class="p-3">
-        <input type="number" min="0" max="100" value="${val}" class="input-nilai-mhs w-full px-2 py-1 border border-slate-300 rounded-lg font-bold text-center focus:outline-none" data-mhs-id="${mhs.id}">
+      <td class="p-2 text-center min-w-[70px]">
+        <input type="number" min="0" max="100" value="${val}" placeholder="0" class="input-nilai-mhs w-14 h-8 px-1 text-center font-black text-xs text-slate-800 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-400 focus:bg-white focus:outline-none" data-mhs-id="${mhs.id}">
       </td>
-      <td class="p-3">
-        <select class="select-tuntas-mhs px-2 py-1 border border-slate-300 rounded-lg text-xs font-bold focus:outline-none" data-mhs-id="${mhs.id}">
-          <option value="Tuntas" ${tuntas === 'Tuntas' ? 'selected' : ''}>Tuntas</option>
-          <option value="Belum Tuntas" ${tuntas === 'Belum Tuntas' ? 'selected' : ''}>Belum Tuntas</option>
-        </select>
+      <td class="p-2 text-center min-w-[85px]">
+        <div class="inline-flex rounded-lg border border-slate-300 p-0.5 bg-slate-100">
+          <button type="button" data-val="T" class="btn-toggle-tuntas px-2 py-1 text-[10px] font-black rounded-md transition-all ${statusVal === 'T' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-200'}">
+            T
+          </button>
+          <button type="button" data-val="TD" class="btn-toggle-tuntas px-1.5 py-1 text-[10px] font-black rounded-md transition-all ${statusVal === 'TD' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-200'}">
+            TD
+          </button>
+        </div>
+        <input type="hidden" class="input-ketuntasan-val" data-mhs-id="${mhs.id}" value="${statusVal}">
       </td>
-      <td class="p-3">
-        <input type="text" value="${catatan}" placeholder="Catatan khusus..." class="input-catatan-mhs w-full px-2 py-1 text-xs border border-slate-200 rounded-lg focus:outline-none" data-mhs-id="${mhs.id}">
+      <td class="p-2 min-w-[110px] w-28 md:w-48">
+        <input type="text" value="${catatan}" placeholder="Catatan..." class="input-catatan-mhs w-full h-8 px-2 text-[11px] font-medium text-slate-700 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-400 focus:bg-white focus:outline-none truncate" data-mhs-id="${mhs.id}">
       </td>
     `;
+
+    const toggleBtns = tr.querySelectorAll('.btn-toggle-tuntas');
+    const hiddenInput = tr.querySelector('.input-ketuntasan-val');
+
+    toggleBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const val = btn.getAttribute('data-val');
+        hiddenInput.value = val;
+
+        toggleBtns.forEach(b => {
+          b.className = 'btn-toggle-tuntas px-1.5 py-1 text-[10px] font-black rounded-md transition-all text-slate-500 hover:bg-slate-200';
+        });
+
+        if (val === 'T') {
+          btn.className = 'btn-toggle-tuntas px-2 py-1 text-[10px] font-black rounded-md transition-all bg-emerald-600 text-white shadow-sm';
+        } else {
+          btn.className = 'btn-toggle-tuntas px-1.5 py-1 text-[10px] font-black rounded-md transition-all bg-rose-600 text-white shadow-sm';
+        }
+      });
+    });
+
     tableBody.appendChild(tr);
   });
   hideLoading();
@@ -221,14 +294,14 @@ async function saveNilaiMassal() {
   const payload = [];
   currentMhsNilaiList.forEach(mhs => {
     const inpNilai = document.querySelector(`.input-nilai-mhs[data-mhs-id="${mhs.id}"]`);
-    const selTuntas = document.querySelector(`.select-tuntas-mhs[data-mhs-id="${mhs.id}"]`);
+    const valTuntas = document.querySelector(`.input-ketuntasan-val[data-mhs-id="${mhs.id}"]`)?.value || 'T';
     const inpCatatan = document.querySelector(`.input-catatan-mhs[data-mhs-id="${mhs.id}"]`);
 
     payload.push({
       id_daftartugas: idTugas,
       id_datamahasiswa: mhs.id,
       nilai_tugas: inpNilai?.value ? parseInt(inpNilai.value) : 0,
-      ketuntasan_tugas: selTuntas?.value || 'Tuntas',
+      ketuntasan_tugas: valTuntas === 'T' ? 'Tuntas' : 'Belum Tuntas',
       refleksi_tugas: inpCatatan?.value || ''
     });
   });
@@ -242,10 +315,6 @@ async function saveNilaiMassal() {
     alert('Seluruh Nilai dan Catatan Berhasil Disimpan!');
   }
 }
-
-// ==========================================
-// LOGIKA MODAL & GENERATE REKAP NILAI EXCEL/PDF
-// ==========================================
 
 function setupExportModalListeners() {
   const modal = document.getElementById('modalEksporNilai');
@@ -268,11 +337,9 @@ async function generateNilaiReport(type) {
 
   showLoading();
   try {
-    // 1. Tarik Info Mata Kuliah
     const { data: mkObj } = await supabase.from('matakuliah').select('*').eq('id', targetMKId).single();
     if (!mkObj) throw new Error('Mata kuliah tidak ditemukan!');
 
-    // 2. Tarik Daftar Tugas di MK ini
     const { data: daftarTugas } = await supabase
       .from('daftartugas')
       .select('*')
@@ -285,7 +352,6 @@ async function generateNilaiReport(type) {
       return;
     }
 
-    // 3. Tarik Mahasiswa yang mengontrak MK ini
     const { data: krsData } = await supabase.from('krsmatakuliah').select('datamahasiswa(*)').eq('id_matakuliah', targetMKId);
     const mhsList = (krsData || []).map(k => k.datamahasiswa).filter(Boolean);
     mhsList.sort((a, b) => a.npm_mahasiswa.localeCompare(b.npm_mahasiswa));
@@ -296,15 +362,12 @@ async function generateNilaiReport(type) {
       return;
     }
 
-    // 4. Tarik Seluruh Record Nilai Tugas di MK ini
     const tugasIds = daftarTugas.map(t => t.id);
     const { data: rawNilai } = await supabase.from('penilaiantugas').select('*').in('id_daftartugas', tugasIds);
 
-    // Map Nilai [mhsId_tugasId] -> nilai
     const nilaiMap = new Map();
     (rawNilai || []).forEach(n => nilaiMap.set(`${n.id_datamahasiswa}_${n.id_daftartugas}`, n.nilai_tugas || 0));
 
-    // 5. Olah Matriks Nilai
     const rows = mhsList.map((mhs, idx) => {
       const rowObj = {
         no: idx + 1,
@@ -327,7 +390,6 @@ async function generateNilaiReport(type) {
       return rowObj;
     });
 
-    // 6. GENERATE EXCEL / PDF
     if (type === 'excel') {
       const sheetRows = rows.map(r => {
         const payload = {
@@ -336,7 +398,6 @@ async function generateNilaiReport(type) {
           'Nama Mahasiswa': r.nama
         };
 
-        // Tugas Berjejer ke Samping
         daftarTugas.forEach(t => {
           payload[t.nama_tugas] = r.scores[t.nama_tugas];
         });
@@ -377,7 +438,7 @@ async function generateNilaiReport(type) {
         head: headers,
         body: body,
         theme: 'grid',
-        headStyles: { fillColor: [245, 158, 11] }, // Amber Color
+        headStyles: { fillColor: [245, 158, 11] },
         styles: { fontSize: 8, cellPadding: 2, halign: 'center' },
         columnStyles: {
           0: { cellWidth: 10 },
