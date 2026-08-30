@@ -19,7 +19,12 @@ export async function initMaster() {
 async function loadMataKuliah() {
   showLoading();
   try {
-    const { data, error } = await supabase.from('matakuliah').select('*').order('nama_mk', { ascending: true });
+    // Mengambil data mata kuliah beserta relasi krsmatakuliah untuk menghitung jumlah mahasiswa
+    const { data, error } = await supabase
+      .from('matakuliah')
+      .select('*, krsmatakuliah(id_datamahasiswa)')
+      .order('nama_mk', { ascending: true });
+
     if (error) throw error;
 
     allMataKuliah = data || [];
@@ -43,6 +48,8 @@ function renderTableMK() {
   }
 
   allMataKuliah.forEach(mk => {
+    const totalMahasiswa = mk.krsmatakuliah ? mk.krsmatakuliah.length : 0;
+
     const tr = document.createElement('tr');
     tr.className = 'hover:bg-slate-50 transition-all';
     tr.innerHTML = `
@@ -50,7 +57,11 @@ function renderTableMK() {
         ${mk.nama_mk} <br/>
         <span class="text-[10px] text-amber-600 font-extrabold">Kelas: ${mk.kelas_mk}</span>
       </td>
-      <td class="p-2.5 text-center font-bold text-slate-600">${mk.sks_mk} SKS</td>
+      <td class="p-2.5 text-center">
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-50 text-teal-700 border border-teal-200">
+          ${totalMahasiswa} Mhs
+        </span>
+      </td>
       <td class="p-2.5 text-center">
         <div class="flex justify-center gap-1">
           <button class="btn-edit-mk p-1 text-amber-600 hover:text-amber-800 font-extrabold" data-id="${mk.id}">Edit</button>
@@ -91,7 +102,6 @@ function renderTableMK() {
 async function loadMahasiswa() {
   showLoading();
   try {
-    // DIURUTKAN A-Z BERDASARKAN NAMA MAHASISWA
     const { data, error } = await supabase
       .from('datamahasiswa')
       .select('*')
@@ -300,7 +310,14 @@ function setupEventListeners() {
   document.getElementById('btnPilihSemuaMhsPlot')?.addEventListener('click', () => {
     const checkboxes = document.querySelectorAll('.cb-plot-mhs');
     const allChecked = Array.from(checkboxes).every(c => c.checked);
-    checkboxes.forEach(c => c.checked = !allChecked);
+    checkboxes.forEach(c => {
+      c.checked = !allChecked;
+      if (c.checked) {
+        currentPlottedMhsIds.add(c.value);
+      } else {
+        currentPlottedMhsIds.delete(c.value);
+      }
+    });
   });
 
   document.getElementById('btnSimpanPlottingKRS')?.addEventListener('click', savePlottingKRS);
@@ -371,10 +388,16 @@ function renderCheckboxPlotting(keyword = '') {
   filteredMhs.forEach(mhs => {
     const isChecked = currentPlottedMhsIds.has(mhs.id) ? 'checked' : '';
     const label = document.createElement('label');
-    label.className = 'flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-200 cursor-pointer hover:bg-amber-50/50 transition-all text-xs font-bold text-slate-800';
+    // Menampilkan Nama Lengkap dan NPM secara penuh tanpa pemotongan teks
+    label.className = 'flex items-start gap-2.5 p-2.5 bg-white rounded-lg border border-slate-200 cursor-pointer hover:bg-amber-50/60 transition-all text-xs font-bold text-slate-800';
     label.innerHTML = `
-      <input type="checkbox" class="cb-plot-mhs w-4 h-4 text-amber-500 rounded focus:ring-amber-400" value="${mhs.id}" ${isChecked}>
-      <span class="truncate">${mhs.nama_mahasiswa} <span class="text-[10px] text-teal-700 font-mono">(${mhs.npm_mahasiswa})</span></span>
+      <input type="checkbox" class="cb-plot-mhs w-4 h-4 mt-0.5 text-amber-500 rounded focus:ring-amber-400 shrink-0" value="${mhs.id}" ${isChecked}>
+      <div class="flex-1 leading-snug break-words">
+        <span class="text-slate-800">${mhs.nama_mahasiswa}</span>
+        <span class="inline-block text-[10px] text-teal-700 font-mono font-extrabold bg-teal-50 px-1.5 py-0.5 rounded border border-teal-100 ml-1">
+          ${mhs.npm_mahasiswa}
+        </span>
+      </div>
     `;
     
     const cb = label.querySelector('input');
@@ -412,6 +435,7 @@ async function savePlottingKRS() {
     }
 
     alert('Plotting KRS berhasil disimpan!');
+    await loadMataKuliah(); // Refresh jumlah mahasiswa pada tabel MK
   } catch (err) {
     alert('Gagal menyimpan Plotting KRS: ' + err.message);
   } finally {

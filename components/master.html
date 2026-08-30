@@ -40,13 +40,13 @@
         </div>
       </form>
 
-      <!-- TABEL DAFTAR MK -->
+      <!-- TABEL DAFTAR MK (KOLOM JUMLAH MAHASISWA) -->
       <div class="overflow-x-auto max-h-[300px] overflow-y-auto border border-slate-100 rounded-xl">
         <table class="w-full text-left text-xs border-collapse">
           <thead class="sticky top-0 bg-slate-100 z-10">
             <tr class="border-b border-slate-200 text-slate-600 font-extrabold uppercase text-[10px]">
               <th class="p-2.5">Mata Kuliah (Kelas)</th>
-              <th class="p-2.5 text-center">SKS</th>
+              <th class="p-2.5 text-center">Jumlah Mahasiswa</th>
               <th class="p-2.5 text-center">Aksi</th>
             </tr>
           </thead>
@@ -96,7 +96,7 @@
         </div>
       </form>
 
-      <!-- TABEL DAFTAR MAHASISWA (MAX HEIGHT ~30 BARIS + STICKY HEADER & SCROLLBAR) -->
+      <!-- TABEL DAFTAR MAHASISWA -->
       <div class="overflow-x-auto max-h-[600px] overflow-y-auto border border-slate-100 rounded-xl">
         <table class="w-full text-left text-xs border-collapse">
           <thead class="sticky top-0 bg-slate-100 z-10 shadow-sm">
@@ -143,8 +143,8 @@
       </div>
     </div>
 
-    <!-- DAFTAR CHECKBOX MAHASISWA -->
-    <div id="containerCheckboxMhsPlotting" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 bg-slate-50 p-4 rounded-xl border border-slate-200 max-h-60 overflow-y-auto">
+    <!-- DAFTAR CHECKBOX MAHASISWA (15 Baris Vertikal & 2 Kolom di Desktop) -->
+    <div id="containerCheckboxMhsPlotting" class="grid grid-cols-1 md:grid-flow-col md:grid-rows-[repeat(15,minmax(0,auto))] md:auto-cols-[minmax(0,1fr)] gap-2 bg-slate-50 p-4 rounded-xl border border-slate-200 overflow-x-auto">
       <p class="text-xs text-slate-400 italic col-span-full">Pilih Mata Kuliah terlebih dahulu untuk menampilkan daftar mahasiswa.</p>
     </div>
   </div>

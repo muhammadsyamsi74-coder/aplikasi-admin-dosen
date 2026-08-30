@@ -3,7 +3,7 @@ import { supabase } from '../config.js';
 import { showLoading, hideLoading } from '../main.js';
 
 let currentMahasiswaList = [];
-let rawRiwayatGrouped = []; // Menampung rekap riwayat presensi
+let rawRiwayatGrouped = [];
 let isViewRiwayat = false;
 
 export async function initPresensi() {
@@ -16,8 +16,7 @@ export async function initPresensi() {
 function setTodayDate() {
   const inputTanggal = document.getElementById('presensiTanggal');
   if (inputTanggal) {
-    const today = new Date().toISOString().split('T')[0];
-    inputTanggal.value = today;
+    inputTanggal.value = new Date().toISOString().split('T')[0];
   }
 }
 
@@ -37,19 +36,20 @@ async function loadMataKuliahOptions() {
 }
 
 function setupEventListeners() {
-  document.getElementById('btnTampilkanMhsPresensi')?.addEventListener('click', loadDaftarMahasiswaPresensi);
+  // 1. AUTO LOAD KETIKA PILIH MK ATAU TANGGAL
+  document.getElementById('presensiSelectMK')?.addEventListener('change', autoLoadDaftarMahasiswa);
+  document.getElementById('presensiTanggal')?.addEventListener('change', autoLoadDaftarMahasiswa);
+
   document.getElementById('btnSetAllHadir')?.addEventListener('click', setAllHadir);
   document.getElementById('btnSimpanPresensi')?.addEventListener('click', savePresensi);
   document.getElementById('btnToggleRiwayat')?.addEventListener('click', toggleViewPresensi);
 
-  // Filter Riwayat Berdasarkan MK
   document.getElementById('filterRiwayatPresensiMK')?.addEventListener('change', (e) => {
     const mkId = e.target.value;
     const filtered = mkId ? rawRiwayatGrouped.filter(r => r.id_mk === mkId) : rawRiwayatGrouped;
     renderRiwayatTable(filtered);
   });
 
-  // Event Delegation Tombol H/I/S/A
   document.getElementById('listPresensiTable')?.addEventListener('click', (e) => {
     const btn = e.target.closest('.btn-kehadiran');
     if (!btn) return;
@@ -70,6 +70,16 @@ function setupEventListeners() {
     if (val === 'Sakit') btn.className = 'btn-kehadiran w-7 h-7 rounded font-bold text-xs border transition-all bg-blue-500 text-white border-blue-600';
     if (val === 'Alpha') btn.className = 'btn-kehadiran w-7 h-7 rounded font-bold text-xs border transition-all bg-red-500 text-white border-red-600';
   });
+}
+
+function autoLoadDaftarMahasiswa() {
+  const idMK = document.getElementById('presensiSelectMK')?.value;
+  const container = document.getElementById('containerTabelPresensi');
+  if (!idMK) {
+    container?.classList.add('hidden');
+    return;
+  }
+  loadDaftarMahasiswaPresensi();
 }
 
 async function toggleViewPresensi() {
@@ -93,10 +103,6 @@ async function toggleViewPresensi() {
   }
 }
 
-// ==========================================
-// INPUT PRESENSI MAHASISWA
-// ==========================================
-
 function getKehadiranButtonsHTML(mhsId, status) {
   const hActive = status === 'Hadir' ? 'bg-teal-500 text-white border-teal-600' : 'bg-slate-100 text-slate-400 border-slate-200 hover:bg-slate-200';
   const iActive = status === 'Izin' ? 'bg-amber-500 text-white border-amber-600' : 'bg-slate-100 text-slate-400 border-slate-200 hover:bg-slate-200';
@@ -117,23 +123,22 @@ function getKehadiranButtonsHTML(mhsId, status) {
 async function loadDaftarMahasiswaPresensi() {
   const idMK = document.getElementById('presensiSelectMK')?.value;
   const tanggal = document.getElementById('presensiTanggal')?.value;
+  const container = document.getElementById('containerTabelPresensi');
+  const tableBody = document.getElementById('listPresensiTable');
 
   if (!idMK || !tanggal) {
-    alert('Mohon pilih Mata Kuliah dan Tanggal terlebih dahulu!');
+    container?.classList.add('hidden');
     return;
   }
 
   showLoading();
-  const container = document.getElementById('containerTabelPresensi');
-  const tableBody = document.getElementById('listPresensiTable');
-
   try {
     const { data: krsData, error: krsErr } = await supabase.from('krsmatakuliah').select('id_datamahasiswa, datamahasiswa(*)').eq('id_matakuliah', idMK);
     if (krsErr) throw krsErr;
 
     currentMahasiswaList = (krsData || []).map(item => item.datamahasiswa).filter(Boolean);
     if (currentMahasiswaList.length === 0) {
-      alert('Belum ada mahasiswa yang dipotting KRS-nya pada mata kuliah ini!');
+      alert('Belum ada mahasiswa yang terdaftar di KRS mata kuliah ini.');
       container?.classList.add('hidden');
       return;
     }
@@ -177,6 +182,7 @@ function setAllHadir() {
   document.querySelectorAll('.btn-kehadiran[data-val="Hadir"]').forEach(btn => btn.click());
 }
 
+// 2. SIMPAN PRESENSI & BUAT DRAF JURNAL OTOMATIS
 async function savePresensi() {
   const idMK = document.getElementById('presensiSelectMK')?.value;
   const tanggal = document.getElementById('presensiTanggal')?.value;
@@ -184,6 +190,7 @@ async function savePresensi() {
 
   showLoading();
   try {
+    // 1. Simpan/Update Presensi
     await supabase.from('presensimahasiswa').delete().eq('id_matakuliah', idMK).eq('tanggal_absensi', tanggal);
 
     const payload = currentMahasiswaList.map(mhs => {
@@ -198,9 +205,38 @@ async function savePresensi() {
       };
     });
 
-    const { error } = await supabase.from('presensimahasiswa').insert(payload);
-    if (error) throw error;
-    alert('Presensi berhasil disimpan!');
+    const { error: presensiErr } = await supabase.from('presensimahasiswa').insert(payload);
+    if (presensiErr) throw presensiErr;
+
+    // 2. Cek apakah Jurnal pada tanggal & MK ini sudah ada sebelumnya
+    const { data: existingJurnal } = await supabase
+      .from('jurnalmengajar')
+      .select('id')
+      .eq('id_matakuliah', idMK)
+      .eq('tanggal_mengajar', tanggal)
+      .maybeSingle();
+
+    // Jika belum ada, buat draf otomatis
+    if (!existingJurnal) {
+      const { count } = await supabase
+        .from('jurnalmengajar')
+        .select('*', { count: 'exact', head: true })
+        .eq('id_matakuliah', idMK);
+
+      const nextPertemuan = (count || 0) + 1;
+
+      await supabase.from('jurnalmengajar').insert([{
+        id_matakuliah: idMK,
+        pertemuan_ke: nextPertemuan,
+        tanggal_mengajar: tanggal,
+        judul_materi: `[Draf] Perkuliahan Pertemuan ${nextPertemuan}`,
+        tempat_mengajar: '-',
+        deskripsi_materi: 'Draf otomatis dari input presensi perkuliahan.',
+        refleksi_materi: '-'
+      }]);
+    }
+
+    alert('Presensi berhasil disimpan dan draf Jurnal telah disinkronkan!');
   } catch (err) {
     alert('Gagal menyimpan presensi: ' + err.message);
   } finally {
@@ -208,10 +244,7 @@ async function savePresensi() {
   }
 }
 
-// ==========================================
-// RIWAYAT PRESENSI & FILTER
-// ==========================================
-
+// RIWAYAT & EKSPOR
 async function loadRiwayatData() {
   showLoading();
   try {
@@ -312,10 +345,6 @@ function renderRiwayatTable(records) {
   });
 }
 
-// ==========================================
-// LOGIKA MODAL & GENERATE MATRIKS EXCEL/PDF
-// ==========================================
-
 function setupExportModalListeners() {
   const modal = document.getElementById('modalEksporPresensi');
   const btnOpen = document.getElementById('btnOpenModalEksporPresensi');
@@ -351,7 +380,6 @@ async function generatePresensiReport(type) {
     const targetMKId = document.getElementById('exportPresensiSelectMK')?.value || '';
     const modeWaktu = document.getElementById('exportPresensiModeWaktu')?.value || 'semua';
 
-    // 1. Tarik Daftar MK yang akan diproses
     let mkQuery = supabase.from('matakuliah').select('*').order('nama_mk');
     if (targetMKId) mkQuery = mkQuery.eq('id', targetMKId);
     const { data: mkList } = await mkQuery;
@@ -362,7 +390,6 @@ async function generatePresensiReport(type) {
       return;
     }
 
-    // 2. Tarik Seluruh Record Presensi + KRS Mahasiswa
     let presensiQuery = supabase.from('presensimahasiswa').select('*, datamahasiswa(*)');
     
     if (modeWaktu === 'tanggal') {
@@ -374,7 +401,6 @@ async function generatePresensiReport(type) {
 
     const { data: rawPresensi } = await presensiQuery;
 
-    // Filter manual jika mode bulan
     let filteredPresensi = rawPresensi || [];
     if (modeWaktu === 'bulan') {
       const bln = parseInt(document.getElementById('exportPresensiBulan')?.value || '1');
@@ -386,29 +412,22 @@ async function generatePresensiReport(type) {
       });
     }
 
-    // 3. Olah Matriks Per Mata Kuliah
     const reportDataPerMK = [];
 
     for (const mk of mkList) {
-      // Ambil Mahasiswa KRS di MK ini
       const { data: krsData } = await supabase.from('krsmatakuliah').select('datamahasiswa(*)').eq('id_matakuliah', mk.id);
       const mhsList = (krsData || []).map(k => k.datamahasiswa).filter(Boolean);
       mhsList.sort((a, b) => a.npm_mahasiswa.localeCompare(b.npm_mahasiswa));
 
-      if (mhsList.length === 0) continue; // Skip jika tidak ada mahasiswa
+      if (mhsList.length === 0) continue;
 
-      // Presensi khusus MK ini
       const mkPresensi = filteredPresensi.filter(p => p.id_matakuliah === mk.id);
-
-      // Dapatkan Daftar Tanggal Unik (Urut)
       const datesSet = new Set(mkPresensi.map(p => p.tanggal_absensi));
       const sortedDates = Array.from(datesSet).sort();
 
-      // Peta Pencarian Status [mhsId_tanggal] -> status
       const statusMap = new Map();
       mkPresensi.forEach(p => statusMap.set(`${p.id_datamahasiswa}_${p.tanggal_absensi}`, p.kehadiran));
 
-      // Susun Baris Mahasiswa
       const rows = mhsList.map((mhs, idx) => {
         const rowObj = {
           no: idx + 1,
@@ -445,7 +464,6 @@ async function generatePresensiReport(type) {
       return;
     }
 
-    // 4. GENERATE EXCEL ATAU PDF
     if (type === 'excel') {
       const workbook = XLSX.utils.book_new();
 
@@ -456,11 +474,9 @@ async function generatePresensiReport(type) {
             'NPM': r.npm,
             'Nama Mahasiswa': r.nama
           };
-          // Kolom Tanggal Deret Kesamping
           item.dates.forEach(d => {
             rowPayload[d] = r.datesStatus[d] || '-';
           });
-          // Kolom Total
           rowPayload['H'] = r.H;
           rowPayload['S'] = r.S;
           rowPayload['I'] = r.I;
@@ -470,7 +486,6 @@ async function generatePresensiReport(type) {
         });
 
         const worksheet = XLSX.utils.json_to_sheet(sheetRows);
-        // Clean sheet name (Max 31 Char)
         const sheetName = `${item.mkInfo.nama_mk}_${item.mkInfo.kelas_mk}`.replace(/[\/\\\?\*\[\]]/g, '').substring(0, 30);
         XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
       });
@@ -482,14 +497,13 @@ async function generatePresensiReport(type) {
       const doc = new jsPDF('landscape');
 
       reportDataPerMK.forEach((item, index) => {
-        if (index > 0) doc.addPage(); // Multi Halaman
+        if (index > 0) doc.addPage();
 
         doc.setFontSize(12);
         doc.text(`REKAPITULASI PRESENSI MAHASISWA`, 14, 12);
         doc.setFontSize(10);
         doc.text(`Mata Kuliah: ${item.mkInfo.nama_mk} (${item.mkInfo.kelas_mk})`, 14, 18);
 
-        // Dynamic Headers
         const headers = [["No", "NPM", "Nama Mahasiswa", ...item.dates, "H", "S", "I", "A"]];
         const body = item.rows.map(r => [
           r.no, r.npm, r.nama,
@@ -502,7 +516,7 @@ async function generatePresensiReport(type) {
           head: headers,
           body: body,
           theme: 'grid',
-          headStyles: { fillColor: [13, 148, 136] }, // Teal Color
+          headStyles: { fillColor: [13, 148, 136] },
           styles: { fontSize: 7, cellPadding: 2, halign: 'center' },
           columnStyles: {
             0: { cellWidth: 8 },
