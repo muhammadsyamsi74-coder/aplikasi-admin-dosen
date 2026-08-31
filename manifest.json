@@ -1,0 +1,17 @@
+{
+  "name": "Aplikasi Admin Dosen",
+  "short_name": "Admin Dosen",
+  "description": "Sistem Informasi Akademik, Presensi & Penilaian Dosen",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#f59e0b",
+  "icons": [
+    {
+      "src": "icon_aplikasi.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
