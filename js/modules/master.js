@@ -117,7 +117,6 @@ function renderTableMK() {
 async function loadMahasiswa() {
   showLoading();
   try {
-    // Ambil data mahasiswa beserta relasi krsmatakuliah untuk menghitung jumlah MK yang diambil
     const { data, error } = await supabase
       .from('datamahasiswa')
       .select('*, krsmatakuliah(id_matakuliah)')
@@ -476,6 +475,8 @@ function setupEventListeners() {
         currentPlottedMhsIds.delete(c.value);
       }
     });
+    // Render ulang agar urutan posisi yang tercentang langsung pindah ke atas
+    renderCheckboxPlotting(inputCari ? inputCari.value : '');
   });
 
   document.getElementById('btnSimpanPlottingKRS')?.addEventListener('click', savePlottingKRS);
@@ -558,10 +559,19 @@ function renderCheckboxPlotting(keyword = '') {
 
   const cleanKeyword = keyword.toLowerCase().trim();
   
-  const filteredMhs = allMahasiswa.filter(mhs => 
+  // Filter mahasiswa sesuai pencarian
+  let filteredMhs = allMahasiswa.filter(mhs => 
     mhs.nama_mahasiswa.toLowerCase().includes(cleanKeyword) ||
     mhs.npm_mahasiswa.toLowerCase().includes(cleanKeyword)
   );
+
+  // Sorting: Mahasiswa yang tercentang (checked) berada di atas, lalu urutkan Nama A-Z
+  filteredMhs.sort((a, b) => {
+    const aChecked = currentPlottedMhsIds.has(a.id) ? 1 : 0;
+    const bChecked = currentPlottedMhsIds.has(b.id) ? 1 : 0;
+    if (aChecked !== bChecked) return bChecked - aChecked;
+    return (a.nama_mahasiswa || '').localeCompare(b.nama_mahasiswa || '');
+  });
 
   container.innerHTML = '';
 
@@ -571,11 +581,13 @@ function renderCheckboxPlotting(keyword = '') {
   }
 
   filteredMhs.forEach(mhs => {
-    const isChecked = currentPlottedMhsIds.has(mhs.id) ? 'checked' : '';
+    const isChecked = currentPlottedMhsIds.has(mhs.id);
     const label = document.createElement('label');
-    label.className = 'flex items-start gap-2.5 p-2.5 bg-white rounded-lg border border-slate-200 cursor-pointer hover:bg-amber-50/60 transition-all text-xs font-bold text-slate-800';
+    label.className = `flex items-start gap-2.5 p-2.5 rounded-lg border transition-all text-xs font-bold text-slate-800 cursor-pointer ${
+      isChecked ? 'bg-amber-50/70 border-amber-300' : 'bg-white border-slate-200 hover:bg-slate-50'
+    }`;
     label.innerHTML = `
-      <input type="checkbox" class="cb-plot-mhs w-4 h-4 mt-0.5 text-amber-500 rounded focus:ring-amber-400 shrink-0" value="${mhs.id}" ${isChecked}>
+      <input type="checkbox" class="cb-plot-mhs w-4 h-4 mt-0.5 text-amber-500 rounded focus:ring-amber-400 shrink-0 cursor-pointer" value="${mhs.id}" ${isChecked ? 'checked' : ''}>
       <div class="flex-1 leading-snug break-words">
         <span class="text-slate-800">${mhs.nama_mahasiswa}</span>
         <span class="inline-block text-[10px] text-teal-700 font-mono font-extrabold bg-teal-50 px-1.5 py-0.5 rounded border border-teal-100 ml-1">
@@ -591,6 +603,9 @@ function renderCheckboxPlotting(keyword = '') {
       } else {
         currentPlottedMhsIds.delete(mhs.id);
       }
+      // Render ulang otomatis agar mahasiswa yang baru diceklis berpindah ke atas
+      const inputCari = document.getElementById('inputCariMhsPlotting');
+      renderCheckboxPlotting(inputCari ? inputCari.value : '');
     });
 
     container.appendChild(label);
@@ -620,7 +635,7 @@ async function savePlottingKRS() {
 
     alert('Plotting KRS berhasil disimpan!');
     await loadMataKuliah();
-    await loadMahasiswa(); // Memperbarui jumlah MK mahasiswa secara langsung
+    await loadMahasiswa();
   } catch (err) {
     alert('Gagal menyimpan Plotting KRS: ' + err.message);
   } finally {
