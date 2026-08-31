@@ -22,8 +22,16 @@ async function loadMKOptions() {
   const select2 = document.getElementById('filterRiwayatMK');
   const select3 = document.getElementById('exportSelectMK');
 
-  const { data } = await supabase.from('matakuliah').select('*').order('nama_mk');
-  const optionsHTML = data?.map(mk => `<option value="${mk.id}">${mk.nama_mk} (${mk.kelas_mk})</option>`).join('') || '';
+  // Hanya memuat mata kuliah yang berstatus aktif (status_mk !== false)
+  const { data, error } = await supabase
+    .from('matakuliah')
+    .select('*')
+    .neq('status_mk', false)
+    .order('nama_mk', { ascending: true });
+
+  if (error) { console.error(error); return; }
+
+  const optionsHTML = data?.map(mk => `<option value="${mk.id}">${mk.nama_mk} (${mk.kelas_mk || '-'})</option>`).join('') || '';
 
   if (select1) select1.innerHTML = '<option value="">-- Pilih Mata Kuliah --</option>' + optionsHTML;
   if (select2) select2.innerHTML = '<option value="">-- Semua Mata Kuliah --</option>' + optionsHTML;
@@ -34,7 +42,7 @@ async function loadMKOptions() {
 async function loadJurnalList() {
   const { data, error } = await supabase
     .from('jurnalmengajar')
-    .select('*, matakuliah(nama_mk, kelas_mk)')
+    .select('*, matakuliah(nama_mk, kelas_mk, status_mk)')
     .order('tanggal_mengajar', { ascending: false });
 
   if (error) { console.error(error); return; }
@@ -62,7 +70,7 @@ function renderTabelRiwayat(dataList) {
         <div class="font-extrabold text-amber-600">Ke-${item.pertemuan_ke}</div>
         <div class="text-[10px] text-slate-400">${item.tanggal_mengajar || '-'}</div>
       </td>
-      <td class="p-3 font-bold text-slate-800">${item.matakuliah?.nama_mk || '-'} <br/><span class="text-[10px] text-slate-500 font-normal">(${item.matakuliah?.kelas_mk})</span></td>
+      <td class="p-3 font-bold text-slate-800">${item.matakuliah?.nama_mk || '-'} <br/><span class="text-[10px] text-slate-500 font-normal">(${item.matakuliah?.kelas_mk || '-'})</span></td>
       <td class="p-3">
         <div class="font-bold text-slate-800">${item.judul_materi}</div>
         <div class="text-[10px] text-slate-500 truncate max-w-[12rem]">${item.deskripsi_materi || '-'}</div>
@@ -220,7 +228,6 @@ function exportJurnalData(type) {
   });
 
   if (type === 'excel') {
-    // GENERATE EXCEL (.XLSX) VIA SHEETJS
     const excelPayload = reportRows.map(r => ({
       'No': r.no,
       'Mata Kuliah': r.mk,
@@ -236,7 +243,6 @@ function exportJurnalData(type) {
     XLSX.writeFile(workbook, `Jurnal_Perkuliahan_${Date.now()}.xlsx`);
 
   } else if (type === 'pdf') {
-    // GENERATE PDF VIA JSPDF & AUTOTABLE
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF('landscape');
 
@@ -253,7 +259,7 @@ function exportJurnalData(type) {
       head: tableHeaders,
       body: tableBody,
       theme: 'grid',
-      headStyles: { fillColor: [245, 158, 11] }, // Warna Amber
+      headStyles: { fillColor: [245, 158, 11] },
       styles: { fontSize: 8, cellPadding: 3 },
       columnStyles: {
         0: { cellWidth: 10 },

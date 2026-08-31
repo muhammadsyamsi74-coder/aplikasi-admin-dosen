@@ -13,107 +13,115 @@
     </button>
   </div>
 
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- PANEL 1: BUAT TUGAS BARU (COLLAPSIBLE DI HP, TERBUKA DI DESKTOP) -->
-    <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4 self-start">
-      <!-- HEADER PANEL DENGAN TRIGGER ACCORDION MOBILE -->
-      <button type="button" id="btnToggleFormTugasMobile" class="w-full flex items-center justify-between text-left focus:outline-none md:cursor-default">
-        <h3 class="text-xs font-extrabold text-slate-700 uppercase tracking-wider">1. Buat Judul Tugas Baru</h3>
-        <!-- IKON INDIKATOR (HANYA MUNCUL DI HP) -->
-        <span class="md:hidden text-slate-400 text-xs font-bold flex items-center gap-1">
-          <span id="labelStatusToggleTugas" class="text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">Buka Form</span>
-          <svg id="iconArrowToggleTugas" class="w-4 h-4 transition-transform duration-200 text-slate-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path>
-          </svg>
-        </span>
-      </button>
+  <!-- PANEL UTAMA TERPADU: KONTROL MK, TUGAS & INPUT NILAI -->
+  <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+    
+    <!-- BARIS KONTROL TUNGGAL: PILIH MK, PILIH TUGAS & TRIGGER FORM TUGAS BARU -->
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-3 bg-amber-50/60 p-4 rounded-2xl border border-amber-200 items-end">
+      <!-- 1 DROPDOWN TUNGGAL MATA KULIAH -->
+      <div class="md:col-span-5">
+        <label class="block text-[11px] font-extrabold text-slate-700 mb-1">1. Pilih Mata Kuliah</label>
+        <select id="penilaianSelectMK" class="w-full px-3 py-2.5 text-xs border border-slate-300 rounded-xl font-bold text-slate-800 bg-white focus:ring-2 focus:ring-amber-400 focus:outline-none">
+          <option value="">-- Pilih Mata Kuliah --</option>
+        </select>
+      </div>
 
-      <!-- WRAPPER FORM (HIDDEN DI MOBILE, BLOCK DI MD/LG KE ATAS) -->
-      <div id="wrapperFormTugas" class="hidden md:block border-t border-slate-100 pt-3 md:border-t-0 md:pt-0">
-        <form id="formDaftarTugas" class="space-y-3">
-          <div>
-            <label class="block text-[11px] font-extrabold text-slate-600 mb-1">Mata Kuliah</label>
-            <select id="tugasSelectMK" required class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-400 focus:outline-none font-bold">
-              <option value="">-- Pilih Mata Kuliah --</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-[11px] font-extrabold text-slate-600 mb-1">Nama / Judul Tugas</label>
-            <input type="text" id="tugas_nama" placeholder="Misal: Tugas 1 - Layout Responsive" required class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-400 focus:outline-none font-bold">
-          </div>
-          
-          <!-- INPUT UPLOAD LAMPIRAN SOAL -->
-          <div>
-            <label class="block text-[11px] font-extrabold text-slate-600 mb-1">
-              Upload Lampiran Soal <span class="font-normal text-slate-400">(Gambar/PDF/Doc)</span>
-            </label>
-            <input type="file" id="tugas_lampiran_file" accept="image/png, image/jpeg, image/jpg, .pdf, .doc, .docx" class="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 border border-slate-200 rounded-xl cursor-pointer">
-            <p class="text-[9px] text-slate-400 mt-1">*Gambar JPG/PNG akan dikompres otomatis sebelum diunggah.</p>
-          </div>
+      <!-- DROPDOWN PILIH TUGAS -->
+      <div class="md:col-span-4">
+        <label class="block text-[11px] font-extrabold text-slate-700 mb-1">2. Pilih Judul Tugas</label>
+        <select id="selectDaftarTugasTarget" class="w-full px-3 py-2.5 text-xs border border-slate-300 rounded-xl font-bold text-slate-800 bg-white focus:ring-2 focus:ring-amber-400 focus:outline-none">
+          <option value="">-- Pilih Tugas --</option>
+        </select>
+      </div>
 
-          <button type="submit" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-md">Simpan Judul Tugas</button>
-        </form>
+      <!-- TOMBOL TOGGLE BUKA/TUTUP FORM BUAT TUGAS BARU -->
+      <div class="md:col-span-3">
+        <button type="button" id="btnToggleFormTugas" class="w-full py-2.5 px-3 bg-slate-800 hover:bg-slate-900 text-white font-extrabold text-xs rounded-xl shadow-sm transition-all flex items-center justify-center gap-1.5">
+          <span id="iconToggleTugas">+</span>
+          <span id="labelToggleTugas">Tambah Tugas Baru</span>
+        </button>
       </div>
     </div>
 
-    <!-- AREA INPUT NILAI MAHASISWA -->
-    <div class="lg:col-span-2 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-      <h3 class="text-xs font-extrabold text-slate-700 uppercase tracking-wider">2. Input Nilai Tugas Mahasiswa</h3>
-      
-      <!-- FILTER BERDASARKAN MATA KULIAH -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-amber-50/50 p-3 rounded-xl border border-amber-200">
-        <div>
-          <label class="block text-[11px] font-extrabold text-slate-700 mb-1">Filter Mata Kuliah</label>
-          <select id="filterMKPenilaian" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl font-bold text-slate-800 bg-white focus:outline-none">
-            <option value="">-- Semua Mata Kuliah --</option>
-          </select>
+    <!-- FORM TAMBAH / EDIT TUGAS (COLLAPSIBLE / DEFAULT HIDDEN) -->
+    <div id="wrapperFormTugas" class="hidden bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+        <h3 id="formTugasTitle" class="text-xs font-black text-slate-800 uppercase tracking-wide">Form Tambah Tugas Baru</h3>
+        <span class="text-[10px] text-amber-700 font-bold bg-amber-100 px-2 py-0.5 rounded-full" id="labelTargetMKForm">MK Terpilih: -</span>
+      </div>
+
+      <form id="formDaftarTugas" class="space-y-3">
+        <input type="hidden" id="edit_tugas_id" value="">
+        <input type="hidden" id="edit_lampiran_lama" value="">
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[11px] font-extrabold text-slate-600 mb-1">Nama / Judul Tugas</label>
+            <input type="text" id="tugas_nama" placeholder="Misal: Tugas 1 - Layout Responsive" required class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-400 focus:outline-none font-bold bg-white">
+          </div>
+          <div>
+            <label class="block text-[11px] font-extrabold text-slate-600 mb-1">
+              Upload Lampiran Soal <span class="font-normal text-slate-400">(Opsional: Gambar/PDF/Doc)</span>
+            </label>
+            <input type="file" id="tugas_lampiran_file" accept="image/png, image/jpeg, image/jpg, .pdf, .doc, .docx" class="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-amber-100 file:text-amber-800 hover:file:bg-amber-200 border border-slate-300 rounded-xl cursor-pointer bg-white">
+            <p id="infoLampiranEditPreview" class="text-[10px] text-teal-700 font-bold mt-1 hidden"></p>
+          </div>
         </div>
-        <div>
-          <label class="block text-[11px] font-extrabold text-slate-700 mb-1">Pilih Judul Tugas</label>
-          <select id="selectDaftarTugasTarget" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl font-bold text-slate-800 bg-white focus:outline-none">
-            <option value="">-- Pilih Tugas --</option>
-          </select>
+
+        <div class="flex justify-end gap-2 pt-1">
+          <button type="button" id="btnBatalTugas" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs transition-all">Batal</button>
+          <button type="submit" id="btnSubmitTugas" class="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs transition-all shadow-md">Simpan Judul Tugas</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- AREA TABEL INPUT NILAI MAHASISWA & KONTROL AKSI TUGAS -->
+    <div id="containerInputNilai" class="hidden space-y-3 pt-2">
+      <!-- BARIS INFO SOAL & TOMBOL EDIT/HAPUS TUGAS -->
+      <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-extrabold text-slate-800 text-xs" id="textInfoJudulTugasAktif">Tugas Aktif</span>
+          <a id="linkLampiranSoal" href="#" target="_blank" class="hidden text-[11px] text-teal-700 bg-teal-50 px-2 py-0.5 rounded-lg border border-teal-200 font-extrabold hover:underline flex items-center gap-1">
+            📄 Lihat Lampiran Soal ↗
+          </a>
+        </div>
+        <!-- TOMBOL EDIT & HAPUS TUGAS -->
+        <div class="flex items-center gap-1.5 self-end sm:self-auto">
+          <button type="button" id="btnEditTugasAktif" class="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-800 font-extrabold text-xs rounded-lg transition-all flex items-center gap-1">
+            ✏️ Edit Judul Tugas
+          </button>
+          <button type="button" id="btnHapusTugasAktif" class="px-3 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-700 font-extrabold text-xs rounded-lg transition-all flex items-center gap-1">
+            🗑️ Hapus Tugas & Nilai
+          </button>
         </div>
       </div>
 
-      <!-- TABEL INPUT NILAI & CATATAN KHUSUS -->
-      <div id="containerInputNilai" class="hidden space-y-3 border-t border-slate-100 pt-3">
-        <div id="infoLampiranSoal" class="hidden p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between text-xs">
-          <span class="font-bold text-slate-700">Lampiran Soal Terunggah:</span>
-          <a id="linkLampiranSoal" href="#" target="_blank" class="text-amber-600 font-extrabold hover:underline flex items-center gap-1">
-            Lihat / Unduh File ↗
-          </a>
-        </div>
-
-        <div class="overflow-x-auto border border-slate-200 rounded-xl">
-          <table class="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr class="bg-slate-100 border-b border-slate-200 text-slate-700 font-black uppercase text-[10px] whitespace-nowrap">
-                <th class="p-3 min-w-[180px] md:min-w-[240px]">NPM / Nama</th>
-                <th class="p-3 text-center min-w-[70px]">Nilai</th>
-                <th class="p-3 text-center min-w-[85px]">Status</th>
-                <th class="p-3 min-w-[110px] w-28 md:w-48">Keterangan</th>
-              </tr>
-            </thead>
-            <tbody id="listInputNilaiTable" class="divide-y divide-slate-100">
-              <!-- Dinamis JS -->
-            </tbody>
-          </table>
-        </div>
-        
-        <div class="flex justify-end pt-2">
-          <button id="btnSimpanNilaiMassal" class="w-full md:w-auto bg-amber-500 hover:bg-amber-600 text-white font-bold px-6 py-2.5 rounded-xl text-xs transition-all shadow-md">
-            Simpan Seluruh Nilai & Catatan
-          </button>
-        </div>
+      <div class="overflow-x-auto border border-slate-200 rounded-xl">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="bg-slate-100 border-b border-slate-200 text-slate-700 font-black uppercase text-[10px] whitespace-nowrap">
+              <th class="p-3 min-w-[180px] md:min-w-[240px]">NPM / Nama</th>
+              <th class="p-3 text-center min-w-[70px]">Nilai</th>
+              <th class="p-3 text-center min-w-[85px]">Status</th>
+              <th class="p-3 min-w-[110px] w-28 md:w-48">Keterangan</th>
+            </tr>
+          </thead>
+          <tbody id="listInputNilaiTable" class="divide-y divide-slate-100">
+            <!-- Dinamis JS -->
+          </tbody>
+        </table>
+      </div>
+      
+      <div class="flex justify-end pt-2">
+        <button id="btnSimpanNilaiMassal" class="w-full md:w-auto bg-amber-500 hover:bg-amber-600 text-white font-bold px-6 py-2.5 rounded-xl text-xs transition-all shadow-md">
+          Simpan Seluruh Nilai & Catatan
+        </button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ========================================== -->
-<!-- MODAL POP-UP UNDUH REKAP NILAI TUGAS       -->
-<!-- ========================================== -->
+<!-- MODAL POP-UP UNDUH REKAP NILAI TUGAS -->
 <div id="modalEksporNilai" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
   <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-4">
     <div class="flex justify-between items-center border-b border-slate-100 pb-3">
@@ -122,7 +130,6 @@
     </div>
 
     <div class="space-y-3">
-      <!-- OPSI PILIH 1 MATA KULIAH -->
       <div>
         <label class="block text-[11px] font-extrabold text-slate-700 mb-1">Pilih Mata Kuliah <span class="text-red-500">*</span></label>
         <select id="exportNilaiSelectMK" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl font-bold text-slate-800 focus:outline-none">
@@ -132,7 +139,6 @@
       </div>
     </div>
 
-    <!-- TOMBOL EKSEKUSI UNDUH -->
     <div class="pt-3 border-t border-slate-100 flex gap-2">
       <button id="btnDoExportNilaiExcel" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5">
         📊 Unduh Excel (.xlsx)

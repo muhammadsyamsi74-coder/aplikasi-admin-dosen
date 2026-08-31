@@ -19,7 +19,6 @@ export async function initMaster() {
 async function loadMataKuliah() {
   showLoading();
   try {
-    // Mengambil data mata kuliah beserta relasi krsmatakuliah untuk menghitung jumlah mahasiswa
     const { data, error } = await supabase
       .from('matakuliah')
       .select('*, krsmatakuliah(id_datamahasiswa)')
@@ -27,7 +26,14 @@ async function loadMataKuliah() {
 
     if (error) throw error;
 
-    allMataKuliah = data || [];
+    // Sorting: Status Aktif (true) di atas, Nonaktif (false) di bawah, lalu berdasarkan Nama A-Z
+    allMataKuliah = (data || []).sort((a, b) => {
+      const statusA = a.status_mk !== false ? 1 : 0;
+      const statusB = b.status_mk !== false ? 1 : 0;
+      if (statusA !== statusB) return statusB - statusA;
+      return (a.nama_mk || '').localeCompare(b.nama_mk || '');
+    });
+
     renderTableMK();
     renderSelectMKPlotting();
   } catch (err) {
@@ -43,23 +49,31 @@ function renderTableMK() {
 
   tableBody.innerHTML = '';
   if (allMataKuliah.length === 0) {
-    tableBody.innerHTML = `<tr><td colspan="3" class="p-3 text-center text-slate-400 italic text-xs">Belum ada data mata kuliah.</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="4" class="p-3 text-center text-slate-400 italic text-xs">Belum ada data mata kuliah.</td></tr>`;
     return;
   }
 
   allMataKuliah.forEach(mk => {
     const totalMahasiswa = mk.krsmatakuliah ? mk.krsmatakuliah.length : 0;
+    const isAktif = mk.status_mk !== false;
+
+    const badgeStatus = isAktif
+      ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">Aktif</span>`
+      : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-500 border border-slate-200">Nonaktif</span>`;
 
     const tr = document.createElement('tr');
     tr.className = 'hover:bg-slate-50 transition-all';
     tr.innerHTML = `
       <td class="p-2.5 font-bold text-slate-800">
         ${mk.nama_mk} <br/>
-        <span class="text-[10px] text-amber-600 font-extrabold">Kelas: ${mk.kelas_mk}</span>
+        <span class="text-[10px] text-amber-600 font-extrabold">Kode: ${mk.kelas_mk || '-'}</span>
+      </td>
+      <td class="p-2.5 text-center">
+        ${badgeStatus}
       </td>
       <td class="p-2.5 text-center">
         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-50 text-teal-700 border border-teal-200">
-          ${totalMahasiswa} Mhs
+          ${totalMahasiswa}
         </span>
       </td>
       <td class="p-2.5 text-center">
@@ -78,9 +92,10 @@ function renderTableMK() {
       if (!mk) return;
       document.getElementById('mk_id').value = mk.id;
       document.getElementById('mk_nama').value = mk.nama_mk;
-      document.getElementById('mk_kelas').value = mk.kelas_mk;
-      document.getElementById('mk_sks').value = mk.sks_mk;
-      document.getElementById('btnBatalMK').classList.remove('hidden');
+      document.getElementById('mk_kelas').value = mk.kelas_mk || '';
+      document.getElementById('mk_sks').value = mk.sks_mk || 3;
+      document.getElementById('mk_status').value = mk.status_mk === false ? 'false' : 'true';
+      showFormMK();
     });
   });
 
@@ -97,20 +112,29 @@ function renderTableMK() {
 }
 
 // ==========================================
-// 2. MASTER MAHASISWA LOGIC (DIBUAT A-Z NAMA)
+// 2. MASTER MAHASISWA LOGIC
 // ==========================================
 async function loadMahasiswa() {
   showLoading();
   try {
+    // Ambil data mahasiswa beserta relasi krsmatakuliah untuk menghitung jumlah MK yang diambil
     const { data, error } = await supabase
       .from('datamahasiswa')
-      .select('*')
+      .select('*, krsmatakuliah(id_matakuliah)')
       .order('nama_mahasiswa', { ascending: true });
 
     if (error) throw error;
 
-    allMahasiswa = data || [];
-    renderTableMahasiswa();
+    // Sorting: Status Aktif (true) di atas, Nonaktif (false) di bawah, lalu Nama A-Z
+    allMahasiswa = (data || []).sort((a, b) => {
+      const statusA = a.status_mahasiswa !== false ? 1 : 0;
+      const statusB = b.status_mahasiswa !== false ? 1 : 0;
+      if (statusA !== statusB) return statusB - statusA;
+      return (a.nama_mahasiswa || '').localeCompare(b.nama_mahasiswa || '');
+    });
+
+    populateAngkatanFilterOptions();
+    applyMahasiswaFilter();
   } catch (err) {
     alert('Gagal memuat mahasiswa: ' + err.message);
   } finally {
@@ -118,17 +142,62 @@ async function loadMahasiswa() {
   }
 }
 
-function renderTableMahasiswa() {
+function populateAngkatanFilterOptions() {
+  const select = document.getElementById('filterMhsAngkatan');
+  if (!select) return;
+
+  const currentVal = select.value;
+  const uniqueAngkatan = Array.from(
+    new Set(allMahasiswa.map(m => String(m.angkatan_mahasiswa || '').trim()).filter(Boolean))
+  ).sort((a, b) => b.localeCompare(a));
+
+  let optionsHTML = '<option value="">-- Semua Angkatan --</option>';
+  uniqueAngkatan.forEach(ang => {
+    optionsHTML += `<option value="${ang}">${ang}</option>`;
+  });
+  select.innerHTML = optionsHTML;
+  select.value = currentVal;
+}
+
+function applyMahasiswaFilter() {
+  const keyword = (document.getElementById('filterMhsKeyword')?.value || '').toLowerCase().trim();
+  const statusVal = document.getElementById('filterMhsStatus')?.value || '';
+  const angkatanVal = document.getElementById('filterMhsAngkatan')?.value || '';
+
+  const filtered = allMahasiswa.filter(mhs => {
+    const matchKeyword = !keyword || 
+      (mhs.nama_mahasiswa && mhs.nama_mahasiswa.toLowerCase().includes(keyword)) ||
+      (mhs.npm_mahasiswa && mhs.npm_mahasiswa.toLowerCase().includes(keyword));
+
+    const isAktif = mhs.status_mahasiswa !== false;
+    const matchStatus = !statusVal || (statusVal === 'true' ? isAktif : !isAktif);
+
+    const matchAngkatan = !angkatanVal || String(mhs.angkatan_mahasiswa || '').trim() === angkatanVal;
+
+    return matchKeyword && matchStatus && matchAngkatan;
+  });
+
+  renderTableMahasiswa(filtered);
+}
+
+function renderTableMahasiswa(dataList) {
   const tableBody = document.getElementById('listMahasiswaTable');
   if (!tableBody) return;
 
   tableBody.innerHTML = '';
-  if (allMahasiswa.length === 0) {
-    tableBody.innerHTML = `<tr><td colspan="3" class="p-3 text-center text-slate-400 italic text-xs">Belum ada data mahasiswa.</td></tr>`;
+  if (dataList.length === 0) {
+    tableBody.innerHTML = `<tr><td colspan="5" class="p-3 text-center text-slate-400 italic text-xs">Tidak ada data mahasiswa yang sesuai filter.</td></tr>`;
     return;
   }
 
-  allMahasiswa.forEach(mhs => {
+  dataList.forEach(mhs => {
+    const isAktif = mhs.status_mahasiswa !== false;
+    const totalMK = mhs.krsmatakuliah ? mhs.krsmatakuliah.length : 0;
+
+    const badgeStatus = isAktif
+      ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">Aktif</span>`
+      : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-500 border border-slate-200">Nonaktif</span>`;
+
     const tr = document.createElement('tr');
     tr.className = 'hover:bg-slate-50 transition-all';
     tr.innerHTML = `
@@ -136,7 +205,15 @@ function renderTableMahasiswa() {
         <div class="font-bold text-slate-800">${mhs.nama_mahasiswa}</div>
         <div class="font-mono text-[10px] font-extrabold text-teal-700">${mhs.npm_mahasiswa}</div>
       </td>
+      <td class="p-2.5 text-center">
+        ${badgeStatus}
+      </td>
       <td class="p-2.5 text-center font-bold text-slate-600">${mhs.angkatan_mahasiswa || '-'}</td>
+      <td class="p-2.5 text-center">
+        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+          ${totalMK} MK
+        </span>
+      </td>
       <td class="p-2.5 text-center">
         <div class="flex justify-center gap-1">
           <button class="btn-edit-mhs p-1 text-amber-600 hover:text-amber-800 font-extrabold" data-id="${mhs.id}">Edit</button>
@@ -154,8 +231,9 @@ function renderTableMahasiswa() {
       document.getElementById('mhs_id').value = mhs.id;
       document.getElementById('mhs_npm').value = mhs.npm_mahasiswa;
       document.getElementById('mhs_nama').value = mhs.nama_mahasiswa;
-      document.getElementById('mhs_angkatan').value = mhs.angkatan_mahasiswa;
-      document.getElementById('btnBatalMhs').classList.remove('hidden');
+      document.getElementById('mhs_angkatan').value = String(mhs.angkatan_mahasiswa || '');
+      document.getElementById('mhs_status').value = mhs.status_mahasiswa === false ? 'false' : 'true';
+      showFormMhs();
     });
   });
 
@@ -172,7 +250,7 @@ function renderTableMahasiswa() {
 }
 
 // ==========================================
-// 3. LOGIKA UPLOAD & DOWNLOAD EXCEL MASSAL
+// 3. LOGIKA UPLOAD & DOWNLOAD EXCEL
 // ==========================================
 function setupUploadExcelListeners() {
   const btnDownload = document.getElementById('btnDownloadTemplateMhs');
@@ -181,9 +259,9 @@ function setupUploadExcelListeners() {
 
   btnDownload?.addEventListener('click', () => {
     const sampleData = [
-      { 'NPM': '202601001', 'Nama Mahasiswa': 'Ahmad Fauzi', 'Angkatan': 2026 },
-      { 'NPM': '202601002', 'Nama Mahasiswa': 'Budi Santoso', 'Angkatan': 2026 },
-      { 'NPM': '202601003', 'Nama Mahasiswa': 'Citra Lestari', 'Angkatan': 2026 }
+      { 'NPM': '202601001', 'Nama Mahasiswa': 'Ahmad Fauzi', 'Tahun Angkatan': '2026', 'Status': 'Aktif' },
+      { 'NPM': '202601002', 'Nama Mahasiswa': 'Budi Santoso', 'Tahun Angkatan': '2026', 'Status': 'Aktif' },
+      { 'NPM': '202601003', 'Nama Mahasiswa': 'Citra Lestari', 'Tahun Angkatan': '2026', 'Status': 'Nonaktif' }
     ];
 
     const worksheet = XLSX.utils.json_to_sheet(sampleData);
@@ -213,31 +291,68 @@ function setupUploadExcelListeners() {
         return;
       }
 
-      const payloadInsert = [];
-      for (const row of jsonRows) {
-        const npm = String(row['NPM'] || row['npm'] || '').trim();
-        const nama = String(row['Nama Mahasiswa'] || row['Nama'] || row['nama'] || '').trim();
-        const angkatan = parseInt(row['Angkatan'] || row['angkatan'] || new Date().getFullYear());
+      const { data: dbMahasiswa, error: fetchErr } = await supabase
+        .from('datamahasiswa')
+        .select('npm_mahasiswa');
 
-        if (npm && nama) {
-          payloadInsert.push({
-            npm_mahasiswa: npm,
-            nama_mahasiswa: nama,
-            angkatan_mahasiswa: isNaN(angkatan) ? new Date().getFullYear() : angkatan
-          });
+      if (fetchErr) throw new Error('Gagal memeriksa data di database: ' + fetchErr.message);
+
+      const registeredNPMSet = new Set((dbMahasiswa || []).map(m => String(m.npm_mahasiswa).trim().toLowerCase()));
+      const seenInExcelNPMSet = new Set();
+      const payloadInsert = [];
+      let duplicateCount = 0;
+
+      for (const row of jsonRows) {
+        let npm = '';
+        let nama = '';
+        let angkatan = '2026';
+        let status = true;
+
+        for (const [key, val] of Object.entries(row)) {
+          const cleanKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const cleanVal = String(val).trim();
+
+          if (cleanKey === 'npm') npm = cleanVal;
+          if (cleanKey.includes('nama') && !cleanKey.includes('mk')) nama = cleanVal;
+          if (cleanKey.includes('angkatan') || cleanKey === 'tahun') angkatan = cleanVal;
+          if (cleanKey.includes('status')) {
+            status = !(cleanVal.toLowerCase() === 'nonaktif' || cleanVal === 'false' || cleanVal === '0');
+          }
         }
+
+        if (!npm || !nama) continue;
+
+        const npmLower = npm.toLowerCase();
+
+        if (registeredNPMSet.has(npmLower) || seenInExcelNPMSet.has(npmLower)) {
+          duplicateCount++;
+          continue;
+        }
+
+        seenInExcelNPMSet.add(npmLower);
+
+        payloadInsert.push({
+          npm_mahasiswa: npm,
+          nama_mahasiswa: nama,
+          angkatan_mahasiswa: String(angkatan || '2026'),
+          status_mahasiswa: status
+        });
       }
 
       if (payloadInsert.length === 0) {
-        alert('Tidak ditemukan data valid! Pastikan header kolom adalah "NPM", "Nama Mahasiswa", dan "Angkatan".');
+        alert(`Tidak ada data baru yang ditambahkan.\nSeluruh ${duplicateCount} data dalam file sudah ada di database atau merupakan duplikat.`);
         hideLoading();
         return;
       }
 
-      const { error } = await supabase.from('datamahasiswa').insert(payloadInsert);
-      if (error) throw error;
+      const { error: insertErr } = await supabase.from('datamahasiswa').insert(payloadInsert);
+      if (insertErr) throw insertErr;
 
-      alert(`Berhasil mengunggah ${payloadInsert.length} data mahasiswa secara serempak!`);
+      let msg = `✅ Berhasil mengunggah ${payloadInsert.length} data mahasiswa baru!`;
+      if (duplicateCount > 0) {
+        msg += `\n(${duplicateCount} data dilewati karena NPM sudah terdaftar/duplikat)`;
+      }
+      alert(msg);
       await loadMahasiswa();
     } catch (err) {
       alert('Gagal memproses file Excel: ' + err.message);
@@ -249,9 +364,31 @@ function setupUploadExcelListeners() {
 }
 
 // ==========================================
-// 4. EVENT LISTENERS FORM & PLOTTING KRS
+// 4. EVENT LISTENERS FORM, FILTER & PLOTTING KRS
 // ==========================================
 function setupEventListeners() {
+  document.getElementById('filterMhsKeyword')?.addEventListener('input', applyMahasiswaFilter);
+  document.getElementById('filterMhsStatus')?.addEventListener('change', applyMahasiswaFilter);
+  document.getElementById('filterMhsAngkatan')?.addEventListener('change', applyMahasiswaFilter);
+
+  document.getElementById('btnToggleFormMK')?.addEventListener('click', () => {
+    const form = document.getElementById('formMataKuliah');
+    if (form.classList.contains('hidden')) {
+      showFormMK();
+    } else {
+      hideFormMK();
+    }
+  });
+
+  document.getElementById('btnToggleFormMhs')?.addEventListener('click', () => {
+    const form = document.getElementById('formMahasiswa');
+    if (form.classList.contains('hidden')) {
+      showFormMhs();
+    } else {
+      hideFormMhs();
+    }
+  });
+
   document.getElementById('formMataKuliah')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     showLoading();
@@ -259,7 +396,8 @@ function setupEventListeners() {
     const payload = {
       nama_mk: document.getElementById('mk_nama').value,
       kelas_mk: document.getElementById('mk_kelas').value,
-      sks_mk: parseInt(document.getElementById('mk_sks').value)
+      sks_mk: parseInt(document.getElementById('mk_sks').value),
+      status_mk: document.getElementById('mk_status').value === 'true'
     };
 
     if (id) {
@@ -268,35 +406,55 @@ function setupEventListeners() {
       await supabase.from('matakuliah').insert([payload]);
     }
 
-    resetFormMK();
+    hideFormMK();
     await loadMataKuliah();
     hideLoading();
   });
 
-  document.getElementById('btnBatalMK')?.addEventListener('click', resetFormMK);
+  document.getElementById('btnBatalMK')?.addEventListener('click', hideFormMK);
 
   document.getElementById('formMahasiswa')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     showLoading();
     const id = document.getElementById('mhs_id').value;
     const payload = {
-      npm_mahasiswa: document.getElementById('mhs_npm').value,
-      nama_mahasiswa: document.getElementById('mhs_nama').value,
-      angkatan_mahasiswa: parseInt(document.getElementById('mhs_angkatan').value)
+      npm_mahasiswa: document.getElementById('mhs_npm').value.trim(),
+      nama_mahasiswa: document.getElementById('mhs_nama').value.trim(),
+      angkatan_mahasiswa: String(document.getElementById('mhs_angkatan').value.trim() || '2026'),
+      status_mahasiswa: document.getElementById('mhs_status').value === 'true'
     };
 
-    if (id) {
-      await supabase.from('datamahasiswa').update(payload).eq('id', id);
-    } else {
-      await supabase.from('datamahasiswa').insert([payload]);
-    }
+    try {
+      if (id) {
+        const { error } = await supabase.from('datamahasiswa').update(payload).eq('id', id);
+        if (error) throw error;
+      } else {
+        const { data: exist } = await supabase
+          .from('datamahasiswa')
+          .select('id')
+          .eq('npm_mahasiswa', payload.npm_mahasiswa)
+          .maybeSingle();
 
-    resetFormMhs();
-    await loadMahasiswa();
-    hideLoading();
+        if (exist) {
+          alert(`NPM ${payload.npm_mahasiswa} sudah terdaftar di sistem!`);
+          hideLoading();
+          return;
+        }
+
+        const { error } = await supabase.from('datamahasiswa').insert([payload]);
+        if (error) throw error;
+      }
+
+      hideFormMhs();
+      await loadMahasiswa();
+    } catch (err) {
+      alert('Gagal menyimpan data: ' + err.message);
+    } finally {
+      hideLoading();
+    }
   });
 
-  document.getElementById('btnBatalMhs')?.addEventListener('click', resetFormMhs);
+  document.getElementById('btnBatalMhs')?.addEventListener('click', hideFormMhs);
 
   const selectMKPlot = document.getElementById('selectMKPlotting');
   const inputCari = document.getElementById('inputCariMhsPlotting');
@@ -323,16 +481,42 @@ function setupEventListeners() {
   document.getElementById('btnSimpanPlottingKRS')?.addEventListener('click', savePlottingKRS);
 }
 
-function resetFormMK() {
-  document.getElementById('formMataKuliah')?.reset();
-  document.getElementById('mk_id').value = '';
-  document.getElementById('btnBatalMK')?.classList.add('hidden');
+function showFormMK() {
+  document.getElementById('formMataKuliah')?.classList.remove('hidden');
+  const icon = document.getElementById('iconToggleMK');
+  const text = document.getElementById('textToggleMK');
+  if (icon) icon.innerText = '✕';
+  if (text) text.innerText = 'Tutup Form';
 }
 
-function resetFormMhs() {
-  document.getElementById('formMahasiswa')?.reset();
+function hideFormMK() {
+  const form = document.getElementById('formMataKuliah');
+  form?.reset();
+  document.getElementById('mk_id').value = '';
+  form?.classList.add('hidden');
+  const icon = document.getElementById('iconToggleMK');
+  const text = document.getElementById('textToggleMK');
+  if (icon) icon.innerText = '+';
+  if (text) text.innerText = 'Tambah MK';
+}
+
+function showFormMhs() {
+  document.getElementById('formMahasiswa')?.classList.remove('hidden');
+  const icon = document.getElementById('iconToggleMhs');
+  const text = document.getElementById('textToggleMhs');
+  if (icon) icon.innerText = '✕';
+  if (text) text.innerText = 'Tutup form';
+}
+
+function hideFormMhs() {
+  const form = document.getElementById('formMahasiswa');
+  form?.reset();
   document.getElementById('mhs_id').value = '';
-  document.getElementById('btnBatalMhs')?.classList.add('hidden');
+  form?.classList.add('hidden');
+  const icon = document.getElementById('iconToggleMhs');
+  const text = document.getElementById('textToggleMhs');
+  if (icon) icon.innerText = '+';
+  if (text) text.innerText = 'Tambah Mahasiswa';
 }
 
 function renderSelectMKPlotting() {
@@ -341,7 +525,8 @@ function renderSelectMKPlotting() {
 
   select.innerHTML = '<option value="">-- Pilih Mata Kuliah --</option>';
   allMataKuliah.forEach(mk => {
-    select.innerHTML += `<option value="${mk.id}">${mk.nama_mk} (${mk.kelas_mk})</option>`;
+    const labelStatus = mk.status_mk === false ? ' [Nonaktif]' : '';
+    select.innerHTML += `<option value="${mk.id}">${mk.nama_mk} (${mk.kelas_mk || '-'})${labelStatus}</option>`;
   });
 }
 
@@ -388,7 +573,6 @@ function renderCheckboxPlotting(keyword = '') {
   filteredMhs.forEach(mhs => {
     const isChecked = currentPlottedMhsIds.has(mhs.id) ? 'checked' : '';
     const label = document.createElement('label');
-    // Menampilkan Nama Lengkap dan NPM secara penuh tanpa pemotongan teks
     label.className = 'flex items-start gap-2.5 p-2.5 bg-white rounded-lg border border-slate-200 cursor-pointer hover:bg-amber-50/60 transition-all text-xs font-bold text-slate-800';
     label.innerHTML = `
       <input type="checkbox" class="cb-plot-mhs w-4 h-4 mt-0.5 text-amber-500 rounded focus:ring-amber-400 shrink-0" value="${mhs.id}" ${isChecked}>
@@ -435,7 +619,8 @@ async function savePlottingKRS() {
     }
 
     alert('Plotting KRS berhasil disimpan!');
-    await loadMataKuliah(); // Refresh jumlah mahasiswa pada tabel MK
+    await loadMataKuliah();
+    await loadMahasiswa(); // Memperbarui jumlah MK mahasiswa secara langsung
   } catch (err) {
     alert('Gagal menyimpan Plotting KRS: ' + err.message);
   } finally {

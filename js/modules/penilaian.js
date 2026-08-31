@@ -4,77 +4,122 @@ import { showLoading, hideLoading } from '../main.js';
 
 let currentMhsNilaiList = [];
 let allTugasData = [];
+let allMataKuliahList = [];
 
 const BUCKET_NAME = 'lampiran_aplikasiika';
 
 export async function initPenilaian() {
   await loadMKOptions();
-  await loadTugasSelectOptions();
   setupEventListeners();
   setupExportModalListeners();
-  setupAccordionMobile();
-}
-
-// LOGIKA BUKA/TUTUP FORM TUGAS DI MOBILE
-function setupAccordionMobile() {
-  const btnToggle = document.getElementById('btnToggleFormTugasMobile');
-  const wrapper = document.getElementById('wrapperFormTugas');
-  const label = document.getElementById('labelStatusToggleTugas');
-  const icon = document.getElementById('iconArrowToggleTugas');
-
-  if (!btnToggle || !wrapper) return;
-
-  btnToggle.addEventListener('click', () => {
-    // Hanya berlaku di layar kecil (mobile)
-    if (window.innerWidth >= 768) return;
-
-    const isHidden = wrapper.classList.contains('hidden');
-    if (isHidden) {
-      wrapper.classList.remove('hidden');
-      if (label) {
-        label.innerText = 'Tutup Form';
-        label.className = 'text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full';
-      }
-      if (icon) icon.classList.add('rotate-180');
-    } else {
-      wrapper.classList.add('hidden');
-      if (label) {
-        label.innerText = 'Buka Form';
-        label.className = 'text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full';
-      }
-      if (icon) icon.classList.remove('rotate-180');
-    }
-  });
 }
 
 async function loadMKOptions() {
-  const select1 = document.getElementById('tugasSelectMK');
-  const select2 = document.getElementById('filterMKPenilaian');
-  const select3 = document.getElementById('exportNilaiSelectMK');
-  if (!select1 || !select2) return;
+  const selectMK = document.getElementById('penilaianSelectMK');
+  const selectExportMK = document.getElementById('exportNilaiSelectMK');
 
-  const { data } = await supabase.from('matakuliah').select('*').order('nama_mk');
-  const optionsHTML = data?.map(mk => `<option value="${mk.id}">${mk.nama_mk} (${mk.kelas_mk})</option>`).join('') || '';
-  
-  select1.innerHTML = '<option value="">-- Pilih Mata Kuliah --</option>' + optionsHTML;
-  select2.innerHTML = '<option value="">-- Semua Mata Kuliah --</option>' + optionsHTML;
-  if (select3) select3.innerHTML = '<option value="">-- Pilih 1 Mata Kuliah --</option>' + optionsHTML;
+  const { data, error } = await supabase
+    .from('matakuliah')
+    .select('*')
+    .neq('status_mk', false)
+    .order('nama_mk', { ascending: true });
+
+  if (error) { console.error(error); return; }
+
+  allMataKuliahList = data || [];
+  const optionsHTML = allMataKuliahList.map(mk => `<option value="${mk.id}">${mk.nama_mk} (${mk.kelas_mk || '-'})</option>`).join('');
+
+  if (selectMK) selectMK.innerHTML = '<option value="">-- Pilih Mata Kuliah --</option>' + optionsHTML;
+  if (selectExportMK) selectExportMK.innerHTML = '<option value="">-- Pilih 1 Mata Kuliah --</option>' + optionsHTML;
 }
 
 async function loadTugasSelectOptions(filterMKId = '') {
   const select = document.getElementById('selectDaftarTugasTarget');
   if (!select) return;
 
-  let query = supabase.from('daftartugas').select('*, matakuliah(nama_mk, kelas_mk)').order('created_at', { ascending: false });
-  if (filterMKId) query = query.eq('id_matakuliah', filterMKId);
+  if (!filterMKId) {
+    select.innerHTML = '<option value="">-- Pilih Mata Kuliah Dahulu --</option>';
+    allTugasData = [];
+    return;
+  }
 
-  const { data } = await query;
+  const { data, error } = await supabase
+    .from('daftartugas')
+    .select('*, matakuliah!inner(nama_mk, kelas_mk, status_mk)')
+    .eq('id_matakuliah', filterMKId)
+    .neq('matakuliah.status_mk', false)
+    .order('created_at', { ascending: false });
+
+  if (error) { console.error(error); return; }
+
   allTugasData = data || [];
-
   select.innerHTML = '<option value="">-- Pilih Tugas --</option>';
-  allTugasData.forEach(t => {
-    select.innerHTML += `<option value="${t.id}" data-mk-id="${t.id_matakuliah}">${t.nama_tugas} - [${t.matakuliah?.nama_mk || ''}]</option>`;
-  });
+  
+  if (allTugasData.length === 0) {
+    select.innerHTML = '<option value="">-- Belum ada tugas untuk MK ini --</option>';
+  } else {
+    allTugasData.forEach(t => {
+      select.innerHTML += `<option value="${t.id}" data-mk-id="${t.id_matakuliah}">${t.nama_tugas}</option>`;
+    });
+  }
+}
+
+function toggleFormTugas(show = null, isEdit = false, tugasObj = null) {
+  const wrapper = document.getElementById('wrapperFormTugas');
+  const icon = document.getElementById('iconToggleTugas');
+  const label = document.getElementById('labelToggleTugas');
+  const formTitle = document.getElementById('formTugasTitle');
+  const submitBtn = document.getElementById('btnSubmitTugas');
+  const previewLampiran = document.getElementById('infoLampiranEditPreview');
+  if (!wrapper) return;
+
+  const willShow = show !== null ? show : wrapper.classList.contains('hidden');
+  if (willShow) {
+    const idMK = document.getElementById('penilaianSelectMK')?.value;
+    if (!idMK) {
+      alert('Pilih Mata Kuliah terlebih dahulu!');
+      return;
+    }
+    const currentMK = allMataKuliahList.find(m => m.id === idMK);
+    const labelTarget = document.getElementById('labelTargetMKForm');
+    if (labelTarget && currentMK) {
+      labelTarget.innerText = `MK: ${currentMK.nama_mk} (${currentMK.kelas_mk || '-'})`;
+    }
+
+    if (isEdit && tugasObj) {
+      document.getElementById('edit_tugas_id').value = tugasObj.id;
+      document.getElementById('tugas_nama').value = tugasObj.nama_tugas;
+      document.getElementById('edit_lampiran_lama').value = tugasObj.lampiran_tugas || '-';
+      formTitle.innerText = 'Edit Judul Tugas';
+      submitBtn.innerText = 'Perbarui Judul Tugas';
+
+      if (tugasObj.lampiran_tugas && tugasObj.lampiran_tugas !== '-') {
+        previewLampiran.innerText = 'Sudah ada lampiran. Unggah file baru untuk menggantinya.';
+        previewLampiran.classList.remove('hidden');
+      } else {
+        previewLampiran.classList.add('hidden');
+      }
+    } else {
+      document.getElementById('edit_tugas_id').value = '';
+      document.getElementById('edit_lampiran_lama').value = '';
+      document.getElementById('formDaftarTugas').reset();
+      formTitle.innerText = 'Form Tambah Tugas Baru';
+      submitBtn.innerText = 'Simpan Judul Tugas';
+      previewLampiran.classList.add('hidden');
+    }
+
+    wrapper.classList.remove('hidden');
+    if (icon) icon.innerText = '✕';
+    if (label) label.innerText = 'Tutup Form Tugas';
+  } else {
+    wrapper.classList.add('hidden');
+    document.getElementById('formDaftarTugas')?.reset();
+    document.getElementById('edit_tugas_id').value = '';
+    document.getElementById('edit_lampiran_lama').value = '';
+    previewLampiran?.classList.add('hidden');
+    if (icon) icon.innerText = '+';
+    if (label) label.innerText = 'Tambah Tugas Baru';
+  }
 }
 
 function compressImage(file, maxWidth = 1000, quality = 0.7) {
@@ -121,24 +166,39 @@ function compressImage(file, maxWidth = 1000, quality = 0.7) {
 }
 
 function setupEventListeners() {
-  document.getElementById('filterMKPenilaian')?.addEventListener('change', (e) => {
-    loadTugasSelectOptions(e.target.value);
+  // Dropdown Tunggal Mata Kuliah
+  document.getElementById('penilaianSelectMK')?.addEventListener('change', async (e) => {
+    const mkId = e.target.value;
     document.getElementById('containerInputNilai')?.classList.add('hidden');
+    toggleFormTugas(false);
+    await loadTugasSelectOptions(mkId);
   });
 
+  // Toggle Form Buat Tugas Baru
+  document.getElementById('btnToggleFormTugas')?.addEventListener('click', () => toggleFormTugas());
+  document.getElementById('btnBatalTugas')?.addEventListener('click', () => toggleFormTugas(false));
+
+  // Submit Form Tambah / Edit Tugas
   document.getElementById('formDaftarTugas')?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const idMK = document.getElementById('penilaianSelectMK')?.value;
+    if (!idMK) {
+      alert('Pilih Mata Kuliah terlebih dahulu!');
+      return;
+    }
+
     showLoading();
-
     try {
+      const editId = document.getElementById('edit_tugas_id').value;
       const fileInput = document.getElementById('tugas_lampiran_file');
-      let lampiranURL = '-';
+      let lampiranURL = document.getElementById('edit_lampiran_lama').value || '-';
 
+      // Upload file baru jika ada file yang dipilih
       if (fileInput?.files?.length > 0) {
         let file = fileInput.files[0];
         const allowedExtensions = /(\.jpg|\.jpeg|\.png|\.pdf|\.doc|\.docx)$/i;
         if (!allowedExtensions.exec(file.name)) {
-          alert('Format file tidak didukung!');
+          alert('Format file lampiran tidak didukung!');
           hideLoading();
           return;
         }
@@ -148,36 +208,44 @@ function setupEventListeners() {
         const fileName = `soal_${Date.now()}_${cleanFileName}`;
         
         const { error: uploadErr } = await supabase.storage.from(BUCKET_NAME).upload(fileName, file);
-        if (uploadErr) throw new Error('Gagal unggah berkas: ' + uploadErr.message);
+        if (uploadErr) throw new Error('Gagal mengunggah berkas: ' + uploadErr.message);
 
         const { data: publicURLData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(fileName);
         lampiranURL = publicURLData.publicUrl;
       }
 
       const payload = {
-        id_matakuliah: document.getElementById('tugasSelectMK').value,
-        nama_tugas: document.getElementById('tugas_nama').value,
+        id_matakuliah: idMK,
+        nama_tugas: document.getElementById('tugas_nama').value.trim(),
         lampiran_tugas: lampiranURL
       };
 
-      const { error: insertErr } = await supabase.from('daftartugas').insert([payload]);
-      if (insertErr) throw insertErr;
+      let targetId = editId;
 
-      document.getElementById('formDaftarTugas').reset();
-      await loadTugasSelectOptions();
-      
-      // Tutup kembali accordion di mobile setelah submit berhasil
-      if (window.innerWidth < 768) {
-        document.getElementById('wrapperFormTugas')?.classList.add('hidden');
-        const label = document.getElementById('labelStatusToggleTugas');
-        if (label) {
-          label.innerText = 'Buka Form';
-          label.className = 'text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full';
-        }
-        document.getElementById('iconArrowToggleTugas')?.classList.remove('rotate-180');
+      if (editId) {
+        // Mode Edit
+        const { error: updateErr } = await supabase.from('daftartugas').update(payload).eq('id', editId);
+        if (updateErr) throw updateErr;
+      } else {
+        // Mode Tambah Baru
+        const { data: insertData, error: insertErr } = await supabase.from('daftartugas').insert([payload]).select();
+        if (insertErr) throw insertErr;
+        if (insertData && insertData.length > 0) targetId = insertData[0].id;
       }
 
-      alert('Judul Tugas & Lampiran Soal Berhasil Disimpan!');
+      toggleFormTugas(false);
+      await loadTugasSelectOptions(idMK);
+
+      // Otomatis pilih kembali tugas terkait
+      if (targetId) {
+        const selectTugas = document.getElementById('selectDaftarTugasTarget');
+        if (selectTugas) {
+          selectTugas.value = targetId;
+          selectTugas.dispatchEvent(new Event('change'));
+        }
+      }
+
+      alert(editId ? 'Judul Tugas Berhasil Diperbarui!' : 'Judul Tugas Baru Berhasil Disimpan!');
     } catch (err) {
       alert('Terjadi kesalahan: ' + err.message);
     } finally {
@@ -185,11 +253,11 @@ function setupEventListeners() {
     }
   });
 
+  // Pilih Tugas Target untuk Input Nilai
   const selectTugas = document.getElementById('selectDaftarTugasTarget');
   selectTugas?.addEventListener('change', async () => {
     const idTugas = selectTugas.value;
-    const selectedOpt = selectTugas.options[selectTugas.selectedIndex];
-    const idMK = selectedOpt?.getAttribute('data-mk-id');
+    const idMK = document.getElementById('penilaianSelectMK')?.value;
     
     const container = document.getElementById('containerInputNilai');
     if (!idTugas || !idMK) { container?.classList.add('hidden'); return; }
@@ -197,17 +265,60 @@ function setupEventListeners() {
     container?.classList.remove('hidden');
 
     const tugasObj = allTugasData.find(t => t.id === idTugas);
-    const boxLampiran = document.getElementById('infoLampiranSoal');
     const linkLampiran = document.getElementById('linkLampiranSoal');
+    const textInfoJudul = document.getElementById('textInfoJudulTugasAktif');
     
+    if (textInfoJudul) textInfoJudul.innerText = `Tugas: ${tugasObj?.nama_tugas || '-'}`;
+
     if (tugasObj && tugasObj.lampiran_tugas && tugasObj.lampiran_tugas !== '-') {
-      boxLampiran.classList.remove('hidden');
+      linkLampiran.classList.remove('hidden');
       linkLampiran.href = tugasObj.lampiran_tugas;
     } else {
-      boxLampiran.classList.add('hidden');
+      linkLampiran.classList.add('hidden');
     }
 
     await loadTabelNilai(idTugas, idMK);
+  });
+
+  // Tombol Edit Tugas Aktif
+  document.getElementById('btnEditTugasAktif')?.addEventListener('click', () => {
+    const idTugas = selectTugas?.value;
+    if (!idTugas) return;
+    const tugasObj = allTugasData.find(t => t.id === idTugas);
+    if (tugasObj) {
+      toggleFormTugas(true, true, tugasObj);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  });
+
+  // Tombol Hapus Tugas Aktif
+  document.getElementById('btnHapusTugasAktif')?.addEventListener('click', async () => {
+    const idTugas = selectTugas?.value;
+    const idMK = document.getElementById('penilaianSelectMK')?.value;
+    if (!idTugas) return;
+
+    const tugasObj = allTugasData.find(t => t.id === idTugas);
+    const konfirmasi = confirm(`Apakah Anda yakin ingin menghapus "${tugasObj?.nama_tugas}"?\n\nPERINGATAN: Seluruh data nilai mahasiswa di dalam tugas ini akan terhapus secara permanen.`);
+    if (!konfirmasi) return;
+
+    showLoading();
+    try {
+      // 1. Hapus relasi nilai tugas terlebih dahulu
+      await supabase.from('penilaiantugas').delete().eq('id_daftartugas', idTugas);
+
+      // 2. Hapus judul tugas
+      const { error: delErr } = await supabase.from('daftartugas').delete().eq('id', idTugas);
+      if (delErr) throw delErr;
+
+      alert('Tugas dan seluruh nilai terkait berhasil dihapus!');
+      document.getElementById('containerInputNilai')?.classList.add('hidden');
+      toggleFormTugas(false);
+      await loadTugasSelectOptions(idMK);
+    } catch (err) {
+      alert('Gagal menghapus tugas: ' + err.message);
+    } finally {
+      hideLoading();
+    }
   });
 
   document.getElementById('btnSimpanNilaiMassal')?.addEventListener('click', saveNilaiMassal);
@@ -218,12 +329,24 @@ async function loadTabelNilai(idTugas, idMK) {
   const tableBody = document.getElementById('listInputNilaiTable');
 
   const { data: krsData } = await supabase.from('krsmatakuliah').select('datamahasiswa(*)').eq('id_matakuliah', idMK);
-  currentMhsNilaiList = (krsData || []).map(k => k.datamahasiswa).filter(Boolean);
+  
+  currentMhsNilaiList = (krsData || [])
+    .map(k => k.datamahasiswa)
+    .filter(mhs => mhs && mhs.status_mahasiswa !== false);
+
+  currentMhsNilaiList.sort((a, b) => (a.nama_mahasiswa || '').localeCompare(b.nama_mahasiswa || ''));
 
   const { data: nilaiData } = await supabase.from('penilaiantugas').select('*').eq('id_daftartugas', idTugas);
   const nilaiMap = new Map((nilaiData || []).map(n => [n.id_datamahasiswa, n]));
 
   tableBody.innerHTML = '';
+  
+  if (currentMhsNilaiList.length === 0) {
+    tableBody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400 italic text-xs">Belum ada mahasiswa aktif di mata kuliah ini.</td></tr>`;
+    hideLoading();
+    return;
+  }
+
   currentMhsNilaiList.forEach(mhs => {
     const rec = nilaiMap.get(mhs.id);
     const val = rec?.nilai_tugas !== undefined ? rec.nilai_tugas : '';
@@ -337,8 +460,14 @@ async function generateNilaiReport(type) {
 
   showLoading();
   try {
-    const { data: mkObj } = await supabase.from('matakuliah').select('*').eq('id', targetMKId).single();
-    if (!mkObj) throw new Error('Mata kuliah tidak ditemukan!');
+    const { data: mkObj } = await supabase
+      .from('matakuliah')
+      .select('*')
+      .eq('id', targetMKId)
+      .neq('status_mk', false)
+      .single();
+
+    if (!mkObj) throw new Error('Mata kuliah aktif tidak ditemukan!');
 
     const { data: daftarTugas } = await supabase
       .from('daftartugas')
@@ -352,12 +481,19 @@ async function generateNilaiReport(type) {
       return;
     }
 
-    const { data: krsData } = await supabase.from('krsmatakuliah').select('datamahasiswa(*)').eq('id_matakuliah', targetMKId);
-    const mhsList = (krsData || []).map(k => k.datamahasiswa).filter(Boolean);
-    mhsList.sort((a, b) => a.npm_mahasiswa.localeCompare(b.npm_mahasiswa));
+    const { data: krsData } = await supabase
+      .from('krsmatakuliah')
+      .select('datamahasiswa(*)')
+      .eq('id_matakuliah', targetMKId);
+
+    const mhsList = (krsData || [])
+      .map(k => k.datamahasiswa)
+      .filter(mhs => mhs && mhs.status_mahasiswa !== false);
+
+    mhsList.sort((a, b) => (a.npm_mahasiswa || '').localeCompare(b.npm_mahasiswa || ''));
 
     if (mhsList.length === 0) {
-      alert('Belum ada mahasiswa yang mengambil mata kuliah ini!');
+      alert('Belum ada mahasiswa aktif yang mengambil mata kuliah ini!');
       hideLoading();
       return;
     }
@@ -410,7 +546,7 @@ async function generateNilaiReport(type) {
 
       const worksheet = XLSX.utils.json_to_sheet(sheetRows);
       const workbook = XLSX.utils.book_new();
-      const sheetName = `${mkObj.nama_mk}_${mkObj.kelas_mk}`.replace(/[\/\\\?\*\[\]]/g, '').substring(0, 30);
+      const sheetName = `${mkObj.nama_mk}_${mkObj.kelas_mk || ''}`.replace(/[\/\\\?\*\[\]]/g, '').substring(0, 30);
       XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
 
       XLSX.writeFile(workbook, `Rekap_Nilai_${mkObj.nama_mk.replace(/\s+/g, '_')}_${Date.now()}.xlsx`);
@@ -422,7 +558,7 @@ async function generateNilaiReport(type) {
       doc.setFontSize(14);
       doc.text(`REKAPITULASI NILAI TUGAS MAHASISWA`, 14, 12);
       doc.setFontSize(10);
-      doc.text(`Mata Kuliah: ${mkObj.nama_mk} (${mkObj.kelas_mk})`, 14, 18);
+      doc.text(`Mata Kuliah: ${mkObj.nama_mk} (${mkObj.kelas_mk || '-'})`, 14, 18);
 
       const tugasHeaders = daftarTugas.map(t => t.nama_tugas);
       const headers = [["No", "NPM", "Nama Mahasiswa", ...tugasHeaders, "Jumlah", "Rata-Rata"]];

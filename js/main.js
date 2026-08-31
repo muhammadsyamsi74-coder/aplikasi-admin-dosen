@@ -8,6 +8,11 @@ import { initPenilaian } from './modules/penilaian.js';
 const BUCKET_NAME = 'lampiran_aplikasiika';
 let profileDataId = null;
 let currentNamaDosen = '';
+let currentActiveMenu = '';
+let isNavigating = false;
+
+// In-memory cache untuk komponen HTML agar tidak fetch berulang kali
+const componentCache = new Map();
 
 export function showLoading() {
   const loader = document.getElementById('globalLoader');
@@ -202,28 +207,47 @@ function compressImageAvatar(file, maxDimension = 150, quality = 0.7) {
   });
 }
 
-// ROUTER NAVIGASI
+// UPDATE INDIKATOR TOMBOL AKTIF SECARA LANGSUNG (INSTANT UI)
+function updateActiveNavButton(menuName) {
+  document.querySelectorAll('.nav-trigger').forEach(btn => {
+    const isTarget = btn.getAttribute('data-menu') === menuName;
+    if (isTarget) {
+      btn.classList.add('bg-amber-400', 'text-slate-900', 'shadow-sm');
+      btn.classList.remove('text-slate-500', 'hover:bg-slate-50');
+    } else {
+      btn.classList.remove('bg-amber-400', 'text-slate-900', 'shadow-sm');
+      btn.classList.add('text-slate-500', 'hover:bg-slate-50');
+    }
+  });
+}
+
+// ROUTER NAVIGASI DENGAN CACHE & ANTI-DELAY
 export async function navigateTo(menuName) {
+  if (!menuName || (currentActiveMenu === menuName && !isNavigating)) return;
+  if (isNavigating) return;
+
+  isNavigating = true;
+  currentActiveMenu = menuName;
+
+  // 1. Respon langsung tampilan tombol tanpa menunggu fetch
+  updateActiveNavButton(menuName);
   showLoading();
+
   const appContent = document.getElementById('app-content');
 
   try {
-    const response = await fetch(`components/${menuName}.html`);
-    if (!response.ok) throw new Error(`File components/${menuName}.html tidak ditemukan.`);
-    
-    const htmlContent = await response.text();
+    // 2. Ambil dari Cache jika sudah pernah di-load
+    let htmlContent = componentCache.get(menuName);
+    if (!htmlContent) {
+      const response = await fetch(`components/${menuName}.html`);
+      if (!response.ok) throw new Error(`Gagal memuat template: components/${menuName}.html`);
+      htmlContent = await response.text();
+      componentCache.set(menuName, htmlContent);
+    }
+
     appContent.innerHTML = htmlContent;
 
-    document.querySelectorAll('.nav-trigger').forEach(btn => {
-      if (btn.getAttribute('data-menu') === menuName) {
-        btn.classList.add('bg-amber-400', 'text-slate-900', 'shadow-sm');
-        btn.classList.remove('text-slate-500');
-      } else {
-        btn.classList.remove('bg-amber-400', 'text-slate-900', 'shadow-sm');
-        btn.classList.add('text-slate-500');
-      }
-    });
-
+    // 3. Inisialisasi modul JavaScript terkait
     if (menuName === 'master' && typeof initMaster === 'function') await initMaster();
     else if (menuName === 'presensi' && typeof initPresensi === 'function') await initPresensi();
     else if (menuName === 'jurnal' && typeof initJurnal === 'function') await initJurnal();
@@ -231,14 +255,16 @@ export async function navigateTo(menuName) {
 
   } catch (err) {
     console.error('Routing Error:', err);
+    appContent.innerHTML = `<div class="p-6 text-center text-rose-500 font-bold text-xs bg-rose-50 rounded-2xl border border-rose-200">Gagal memuat modul ${menuName}: ${err.message}</div>`;
   } finally {
     hideLoading();
+    isNavigating = false;
   }
 }
 
-window.addEventListener('DOMContentLoaded', async () => {
+window.addEventListener('DOMContentLoaded', () => {
   setupSecurityLogin();
-  await loadProfilDosen();
+  loadProfilDosen();
   setupMultiClickAvatar();
 
   document.querySelectorAll('.nav-trigger').forEach(btn => {
